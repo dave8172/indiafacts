@@ -102,10 +102,10 @@ PLAN_SCHEMA = {
     "additionalProperties": False,
 }
 
-OPINION = ("indiafacts answers questions of fact, not opinion. It reports what the sources record and never "
+OPINION = ("India Facts answers questions of fact, not opinion. It reports what the sources record and never "
            "judges whether a person, party, government or event was good or bad, right or wrong. Ask about "
            "what happened, what was said or decided, or what a law provides.")
-LOADED = "indiafacts answers questions of fact, so it answered this instead:"
+LOADED = "India Facts answers questions of fact, so it answered this instead:"
 
 
 def plan(cl, question):
