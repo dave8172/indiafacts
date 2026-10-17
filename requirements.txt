@@ -1,0 +1,6 @@
+anthropic>=1.9,<2
+psycopg[binary]>=3.2,<4
+numpy>=1.26
+onnxruntime>=1.18
+tokenizers>=0.19
+huggingface_hub>=0.23

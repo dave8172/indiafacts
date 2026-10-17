@@ -1,0 +1,8 @@
+# the GPU machine that embeds the corpus: no database, no API key
+numpy>=1.26
+tokenizers>=0.19
+huggingface_hub>=0.23
+# Windows, any DirectX 12 GPU:
+onnxruntime-directml>=1.18 ; sys_platform == "win32"
+# Linux with NVIDIA: install onnxruntime-gpu instead
+onnxruntime>=1.18 ; sys_platform != "win32"

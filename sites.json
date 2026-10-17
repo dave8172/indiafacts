@@ -1,0 +1,263 @@
+{
+  "_note": "Where India facts live, where to refresh them, and how far each site can be trusted for what. A grade is about the record, not about truth: grade A means the site is the body that issued the record (a court's judgment, Parliament's debate, the Gazette's Act, a ministry's own statement), so it is the original of what that body said or decided. It does not mean the content is true: PIB is grade A for what the government announced, and that is all it proves. 'for' says what a site is the original of. 'web' = used by the answer's web search (engine/ask.py reads this). 'reach' = whether this box could open it (date in 'reach_checked'); sites this box can't reach get fetched from an Indian connection or from their archive.org mirrors. 'verified' stays null until a spot check measures it (see grades.B).",
+  "grades": {
+    "A": "Issuer: the body that made the record. The original of what it says or decided.",
+    "B": "Faithful copy: republishes A records with their identifiers (case number, Act number, date). Trusted to the extent spot checks against the A original agree.",
+    "C": "Research: analysis that cites A or B records. Its citations are used; its conclusions are not.",
+    "D": "Reports claims: news and commentary. Never a source of facts here. A claim seen in the media is followed back to an A or B record or left out."
+  },
+  "reach_checked": null,
+  "sites": [
+    {
+      "domain": "sci.gov.in",
+      "publisher": "Supreme Court of India",
+      "grade": "A",
+      "for": "Supreme Court judgments, orders, cause lists",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "digiscr.sci.gov.in",
+      "publisher": "Supreme Court of India (Supreme Court Reports)",
+      "grade": "A",
+      "for": "the official law report of Supreme Court judgments since 1950",
+      "updates": "as reported",
+      "web": true
+    },
+    {
+      "domain": "judgments.ecourts.gov.in",
+      "publisher": "eCourts, Supreme Court e-Committee",
+      "grade": "A",
+      "for": "High Court judgments",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "ecourts.gov.in",
+      "publisher": "eCourts, Supreme Court e-Committee",
+      "grade": "A",
+      "for": "case status and orders of district courts",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "egazette.gov.in",
+      "publisher": "Gazette of India (Ministry of Housing and Urban Affairs, Department of Publication)",
+      "grade": "A",
+      "for": "Acts as passed, ordinances, notifications, commencement dates",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "indiacode.nic.in",
+      "publisher": "Legislative Department, Ministry of Law and Justice",
+      "grade": "A",
+      "for": "Central and State Acts as amended, with rules and notifications",
+      "updates": "as amended",
+      "web": true
+    },
+    {
+      "domain": "legislative.gov.in",
+      "publisher": "Legislative Department, Ministry of Law and Justice",
+      "grade": "A",
+      "for": "the Constitution of India (current text) and Constitution amendment Acts",
+      "updates": "per amendment",
+      "web": true
+    },
+    {
+      "domain": "lawmin.gov.in",
+      "publisher": "Ministry of Law and Justice",
+      "grade": "A",
+      "for": "the ministry's own notices",
+      "updates": "as issued",
+      "web": true
+    },
+    {
+      "domain": "sansad.in",
+      "publisher": "Parliament of India",
+      "grade": "A",
+      "for": "Lok Sabha and Rajya Sabha debates, questions and answers, bills, committee reports",
+      "updates": "each sitting",
+      "web": true
+    },
+    {
+      "domain": "eparlib.sansad.in",
+      "publisher": "Parliament Library",
+      "grade": "A",
+      "for": "digitised debates since 1921, Constituent Assembly Debates, reports laid in Parliament",
+      "updates": "rarely",
+      "web": true
+    },
+    {
+      "domain": "rajyasabha.nic.in",
+      "publisher": "Rajya Sabha Secretariat",
+      "grade": "A",
+      "for": "Rajya Sabha debates and papers (older site)",
+      "updates": "each sitting",
+      "web": true
+    },
+    {
+      "domain": "lawcommissionofindia.nic.in",
+      "publisher": "Law Commission of India",
+      "grade": "A",
+      "for": "Law Commission reports (its recommendations, not law)",
+      "updates": "per report",
+      "web": true
+    },
+    {
+      "domain": "pib.gov.in",
+      "publisher": "Press Information Bureau, Government of India",
+      "grade": "A",
+      "for": "what the Union government announced. Only that.",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "mea.gov.in",
+      "publisher": "Ministry of External Affairs",
+      "grade": "A",
+      "for": "India's treaties, joint statements and MEA statements: India's side of foreign relations",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "mha.gov.in",
+      "publisher": "Ministry of Home Affairs",
+      "grade": "A",
+      "for": "MHA notifications, annual reports, its own statements",
+      "updates": "as issued",
+      "web": true
+    },
+    {
+      "domain": "eci.gov.in",
+      "publisher": "Election Commission of India",
+      "grade": "A",
+      "for": "election results and statistical reports since 1951",
+      "updates": "per election",
+      "web": true
+    },
+    {
+      "domain": "censusindia.gov.in",
+      "publisher": "Office of the Registrar General and Census Commissioner",
+      "grade": "A",
+      "for": "census tables and reports",
+      "updates": "per census",
+      "web": true
+    },
+    {
+      "domain": "mospi.gov.in",
+      "publisher": "Ministry of Statistics and Programme Implementation",
+      "grade": "A",
+      "for": "national accounts, surveys (NSS, PLFS)",
+      "updates": "per release",
+      "web": true
+    },
+    {
+      "domain": "ncrb.gov.in",
+      "publisher": "National Crime Records Bureau",
+      "grade": "A",
+      "for": "recorded crime statistics (cases registered, not crimes committed)",
+      "updates": "yearly",
+      "web": true
+    },
+    {
+      "domain": "rbi.org.in",
+      "publisher": "Reserve Bank of India",
+      "grade": "A",
+      "for": "monetary and banking data, RBI circulars",
+      "updates": "daily",
+      "web": true
+    },
+    {
+      "domain": "cag.gov.in",
+      "publisher": "Comptroller and Auditor General of India",
+      "grade": "A",
+      "for": "audit reports laid before Parliament and legislatures",
+      "updates": "per report",
+      "web": true
+    },
+    {
+      "domain": "nhrc.nic.in",
+      "publisher": "National Human Rights Commission",
+      "grade": "A",
+      "for": "NHRC orders and annual reports",
+      "updates": "as issued",
+      "web": true
+    },
+    {
+      "domain": "indiabudget.gov.in",
+      "publisher": "Ministry of Finance",
+      "grade": "A",
+      "for": "Union Budget documents and the Economic Survey",
+      "updates": "yearly",
+      "web": true
+    },
+    {
+      "domain": "abhilekh-patal.in",
+      "publisher": "National Archives of India",
+      "grade": "A",
+      "for": "digitised archival records (pre- and post-1947 government files)",
+      "updates": "rarely",
+      "web": false
+    },
+    {
+      "domain": "treaties.un.org",
+      "publisher": "United Nations Treaty Collection",
+      "grade": "A",
+      "for": "texts of treaties registered with the UN",
+      "updates": "as registered",
+      "web": true
+    },
+    {
+      "domain": "un.org",
+      "publisher": "United Nations",
+      "grade": "A",
+      "for": "UN resolutions and Security Council records (e.g. on Kashmir, 1948 onwards)",
+      "updates": "as issued",
+      "web": true
+    },
+    {
+      "domain": "indiankanoon.org",
+      "publisher": "Indian Kanoon (private, free)",
+      "grade": "B",
+      "for": "copies of judgments of the Supreme Court, High Courts and tribunals, and of Acts",
+      "updates": "daily",
+      "web": true,
+      "verified": null
+    },
+    {
+      "domain": "archive.org",
+      "publisher": "Internet Archive (scans from the Digital Library of India, Public Resource, Parliament mirrors)",
+      "grade": "B",
+      "for": "scans of old books, gazettes, reports and debates: the corpus's texts",
+      "updates": "rarely",
+      "web": false,
+      "verified": null
+    },
+    {
+      "domain": "en.wikisource.org",
+      "publisher": "Wikisource (volunteer transcriptions)",
+      "grade": "B",
+      "for": "transcribed public-domain texts, including Indian Acts. Anyone can edit a transcription: a text is used only after checking it against a scan",
+      "updates": "volunteer",
+      "web": false,
+      "verified": null
+    },
+    {
+      "domain": "prsindia.org",
+      "publisher": "PRS Legislative Research (independent, non-profit)",
+      "grade": "C",
+      "for": "bill texts (B) and summaries of bills and budgets (C)",
+      "updates": "per session",
+      "web": true
+    },
+    {
+      "domain": "wikipedia.org",
+      "publisher": "Wikipedia (anyone can edit)",
+      "grade": "D",
+      "for": "nothing as a source. Its article titles name topics in the graph; its references can lead to A or B records, which are then used instead",
+      "updates": "continuously",
+      "web": false
+    }
+  ]
+}
