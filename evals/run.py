@@ -100,7 +100,7 @@ def score(q, out):
         "sources": len(out.get("sources", [])),
         "kinds": len({s["standing"] for s in out.get("sources", [])}),
         "unsourced": sum(1 for s in out.get("segments", []) if s.get("unsourced")) + out.get("unsourced_removed", 0),
-        "judging": [w for w in JUDGING if w in low],
+        "judging": [w for w in JUDGING if re.search(r"\b" + re.escape(w), low)],  # word starts: "proclaimed" is not "claimed"
         "support_yes": round(sup.count("yes") / len(sup), 2) if sup else None,
         "support_no": sup.count("no"),
         "premise_rejected": j["premise_rejected"],

@@ -293,7 +293,9 @@ def answer(question, model=None):
                            "allowed_domains": WEB_DOMAINS}]
     total = plan_cost
     final = None
-    for _ in range(MAX_TURNS):
+
+    def turn():
+        nonlocal total
         msg = cl.beta.messages.create(
             model=model, max_tokens=8000, system=ANSWER_SYSTEM, tools=tools, messages=messages,
             thinking={"type": "adaptive"}, output_config={"effort": "medium"},
@@ -301,7 +303,10 @@ def answer(question, model=None):
             extra_body={"fallbacks": "default", "cache_control": {"type": "ephemeral"}})
         total += llm.cost(msg.model if msg.model in llm.PRICES else model, msg.usage)
         messages.append({"role": "assistant", "content": [b.model_dump(exclude_none=True) for b in msg.content]})
-        final = msg
+        return msg
+
+    for _ in range(MAX_TURNS):
+        msg = final = turn()
         if msg.stop_reason == "pause_turn":
             continue
         if msg.stop_reason != "tool_use":
@@ -314,6 +319,12 @@ def answer(question, model=None):
                 outs.append({"type": "tool_result", "tool_use_id": b.id,
                              "content": [as_search_result(r) for r in rows] or "No passages found."})
         messages.append({"role": "user", "content": outs})
+    if final is not None and final.stop_reason == "end_turn" and _has_markup(final):
+        # Seen in 3 of 36 eval answers: the model writes a made-up "cite" tool call as text. Ask once more.
+        messages.append({"role": "user", "content": "Your answer contains tool-call markup written as text. Write the "
+                         "answer again in plain sentences. Citations attach by themselves when you state what the "
+                         "search results say; there is no cite tool."})
+        final = turn()
     out = render(final, results)
     if out["ok"]:
         total += verify(cl, out)
@@ -385,10 +396,19 @@ def verify(cl, out):
     return llm.cost(llm.WORKER_MODEL, msg.usage)
 
 
+_MARKUP = re.compile(r"</?(?:invoke|parameter|function_calls|antml:\w+)\b")
+
+
+def _has_markup(msg):
+    return any(b.type == "text" and _MARKUP.search(b.text) for b in msg.content)
+
+
 def render(msg, results):
     """Answer segments with citation numbers, and the numbered source list."""
     if msg is None or msg.stop_reason == "refusal":
         return {"ok": False, "reason": "refused", "segments": [], "sources": []}
+    if _has_markup(msg):
+        return {"ok": False, "reason": "malformed", "segments": [], "sources": []}
     segments, sources, index = [], [], {}
     for b in msg.content:
         if b.type != "text":
