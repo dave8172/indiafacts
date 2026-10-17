@@ -4,8 +4,9 @@ Word search finds exact names and numbers ("Article 352", "Nizam"); vectors find
 or in another language (a question in Hindi finds English passages). Answers use both.
 
 The heavy part, embedding the whole corpus, runs once on any machine with a GPU; the server only embeds each
-question (~60 ms on one CPU core). Both sides run the same ONNX export of the same pinned model, so their vectors
-agree closely; `check` measures how closely.
+question (~60 ms on one CPU core). The GPU uses the full-precision export and the server the 4-bit one of the same
+pinned model: the same passage comes out at cosine ~0.95 between them, yet a 4-bit question finds the right passage
+as well among full-precision passages as among 4-bit ones (measured 2026-10-17). `check` measures the gap.
 
   server:  python -m engine embed export            passages without a current vector -> data/passages.jsonl
   GPU box: python -m engine embed run data/passages.jsonl [--provider dml|cuda|cpu]   -> data/vectors-new.npz
@@ -109,6 +110,14 @@ def merge(path):
     have = _load()
     with store.connect() as c:
         live = {r["id"] for r in c.execute("select id from indiafacts.passages").fetchall()}
+    # Never mix model variants in one index: a 4-bit question scores 4-bit passages higher than full-precision
+    # ones, so mixed passages rank by variant, not meaning (measured 2026-10-17). A new variant replaces all.
+    old = json.loads(MANIFEST.read_text())["doc_variant"] if have and MANIFEST.exists() else None
+    if old and old != str(new["variant"]):
+        if not live <= set(new["ids"].tolist()):
+            sys.exit(f"stored vectors are {old}, these are {new['variant']}: embed every passage with {old}, "
+                     f"or every passage with {new['variant']} to switch")
+        have = None
     table = {}
     if have:
         for i, h, v in zip(have["ids"].tolist(), have["hashes"].tolist(), have["vecs"]):
