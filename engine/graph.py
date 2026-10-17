@@ -40,6 +40,9 @@ Naming rules:
   "Vallabhbhai Patel", "Indian Rebellion of 1857", "Bharatiya Nyaya Sanhita", "Simla Agreement".
 - Otherwise a short, specific, neutral name in the same style. Never a value judgment or a stance.
 - People by their full common name, no titles ("Jawaharlal Nehru", not "Pandit Nehru" or "Panditji").
+- An event must be the one the passage itself describes. Each passage carries its source's year: never tag an
+  event that happened after it (a famine in a book of 1902 is not the Bengal famine of 1943). When you can't
+  tell which event it is, leave it out.
 - Skip topics merely mentioned in passing, and generic ones ("India", "history", "politics", "government").
 - A passage that is an index, table of contents, list of names, garbled scan or blank page gets no topics."""
 
