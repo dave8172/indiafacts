@@ -1,7 +1,9 @@
 # indiafacts: sourced, opinion-free answers on Indian history, law, politics and geopolitics
 
-Live at `quirkyagents.com/wizard/projects/indiafacts/` (the page, widget and Pages Function live in the site's own repo). One question in; a short
-answer out where every sentence carries a citation to a passage, with the kind of evidence it is. Stateless:
+Live at `quirkyagents.com/wizard/projects/indiafacts/` (the page, widget and Pages Function live in the site's own repo). One question in; an
+answer out where every sentence cites its source (one number per source, its quoted passages listed under it), with
+the kind of evidence it is. Brief for a narrow question; for a broad one (what a report found, how an event came
+about) a fuller 250-480 word account, a paragraph per main source, opening with a cited sentence naming it. Stateless:
 nothing about the asker is read or stored, so it can't drift towards anyone's views.
 
 ## What it promises (the line we hold; README says it to the public)
@@ -32,7 +34,7 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 | `engine/corpus.py` | fetch OCR text (archive.org `/stream/`; the data nodes reset TLS from this box), clean, cut into ~1,200-char passages of 1-2-sentence blocks, locators (article, section, para, sitting date) |
 | `engine/store.py` | Postgres schema `indiafacts` in the site DB: sources, passages (FTS), topics, passage_topics, topic_edges |
 | `engine/graph.py` | topic tagging (Haiku 5.5, Batch API, 6 passages per request, Wikipedia titles as names) and co-occurrence edges |
-| `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + meaning + graph; 16 max, 3 per source) → answer (Sonnet 5.5 by default, `llm.ANSWER_MODEL`; search results with citations, `search_corpus` tool, official-site web search) → render → widen web quotes (`pages.py`) → per-sentence check (Haiku) |
+| `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + meaning + graph; 16 max, 3 per source; depth full: 24, 6) → answer (Sonnet 5.5 by default, `llm.ANSWER_MODEL`; search results with citations, `search_corpus` tool, official-site web search) → render → widen web quotes (`pages.py`) → per-sentence check (Haiku; an uncited sentence survives only as a gap statement with a word of absence, `_ABSENCE`) → `by_source` (one number per source; segments keep `at` = exact passages) |
 | `engine/pages.py` | web search quotes only ~150 chars: refetch the page (direct, else the API's web_fetch), keep ~900 chars around the quote; 10 s deadline, late cost still logged as `answer` |
 | `engine/server.py` | HTTP: `POST /indiafacts/ask`, `GET /indiafacts/health`; `X-Engine-Key`; daily dollar cap `IF_DAILY_USD`, counting only answers it served (ledger `by: public`; evals and the CLI are `local`) |
 | `evals/` | `questions.json` (mirrored pairs, fact, loaded and opinion questions, false premises, web-only; `expect` = the kind), `run.py` (system vs plain Opus+web baseline; code scores + a Sonnet 5.5 support judge, not the run-time checker) |

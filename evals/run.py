@@ -72,11 +72,16 @@ JUDGE_SCHEMA = {
 
 def judge(question, out):
     """The judge: does each cited sentence follow from its quotes; does the answer open by rejecting a premise."""
-    quotes = {s["n"]: s["quote"][:900] for s in out["sources"]}
+    # the system numbers by source (each segment's `at` = the exact passages it cites); the baseline by passage
+    quotes = {}
+    for s in out["sources"]:
+        for i, x in enumerate(s.get("passages") or [s]):
+            quotes[(s["n"], i) if "passages" in s else s["n"]] = x["quote"][:900]
+    refs = lambda p: [tuple(a) for a in p["at"]] if "at" in p else p["cites"]
     sentences = {}
     for s in out["segments"]:
         sentences.setdefault(s.get("sent", id(s)), []).append(s)
-    items = [("".join(p["text"] for p in parts).strip(), list(dict.fromkeys(n for p in parts for n in p["cites"])))
+    items = [("".join(p["text"] for p in parts).strip(), list(dict.fromkeys(n for p in parts for n in refs(p))))
              for parts in sentences.values() if any(p["cites"] for p in parts)]
     body = "\n\n".join(f"<claim i=\"{i}\">{text}</claim>\n" + "\n".join(f"<quote>{quotes[n]}</quote>" for n in cites if n in quotes)
                        for i, (text, cites) in enumerate(items))

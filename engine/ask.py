@@ -1,7 +1,9 @@
-"""One question in, one short sourced answer out. Stateless: nothing about the asker is read or kept.
+"""One question in, one sourced answer out: brief when one fact answers it, fuller and organised by source when the
+question needs it. Stateless: nothing about the asker is read or kept.
 
 1. Plan (Haiku 5.5): restate the question neutrally, list the premises it assumes, write search queries
-   (both sides' vocabulary), name the topics, say whether it needs the web (court rulings, recent events).
+   (both sides' vocabulary), name the topics, say whether it needs the web (court rulings, recent events), and
+   how deep the answer should go (brief or full).
 2. Retrieve (free): full-text search for each query, plus the passages tagged with the planned topics in the
    graph; then spread the picks across sources and kinds of evidence, so one book can't fill the answer.
 3. Answer (Sonnet 5.5): the passages go in as search results with citations on, so every quote the answer
@@ -9,6 +11,7 @@
    search the web on official and court sites only. A sentence with no citation is marked as unsourced.
 4. Check (Haiku 5.5): each web quote is widened from its page (`pages.py`), then every sentence is read beside
    its quotes; one they don't back is removed.
+5. Number by source (`by_source`): one number per source, its cited passages listed under it.
 """
 import json
 import re
@@ -20,6 +23,9 @@ from . import corpus, llm, pages, store
 
 MAX_PASSAGES = 16
 PER_SOURCE = 3
+# A full answer (what a report found, how an event came about) needs more of each main source: 24 passages, 6 a source
+FULL_PASSAGES = 24
+FULL_PER_SOURCE = 6
 MIN_SCORE = 0.3  # a hit must rank at least this share of its query's best
 MEANING_FLOOR = 0.85  # a meaning hit must reach this share of the best one's cosine
 MAX_TURNS = 4
@@ -72,7 +78,8 @@ Then fill in:
   names, and drop every word of blame, credit, responsibility or label. For opinion, empty.
 - suggest: for loaded or opinion, three short questions of fact a person could ask instead, on the same
   subject, framed the same way whichever side the question seems to favour. Else empty.
-- premises: dates, events or facts the question takes for granted (not judgments). These will be checked.
+- premises: dates, events or facts that the question's own words take for granted (not judgments, and
+  nothing the question doesn't say). These will be checked.
 - act: if it asks whether a named person can be sued, charged or held liable, the act alone, without the
   name ("publishing a false statement that harms someone's reputation"); else empty.
 - searches: 5 to 8 keyword queries of 2 to 4 words each for Postgres full-text search, where every word must
@@ -82,6 +89,10 @@ Then fill in:
 - topics: up to 5 topics as English Wikipedia article titles.
 - web: true if it needs court rulings, Constitution amendments after 2021, laws after 2023, events the corpus
   can't cover, or current figures.
+- depth: brief if one short fact answers it: what a provision says, a date, a penalty, whether the law covers
+  an act. full if a good answer brings together several findings or accounts: what a commission, report,
+  committee, debate or book recorded, found or recommended; how an event came about; what each side said or
+  did; a broad "what happened" question. When unsure, full.
 
 The corpus:
 {{corpus}}""".replace("{corpus}", CORPUS)
@@ -97,8 +108,9 @@ PLAN_SCHEMA = {
         "searches": {"type": "array", "items": {"type": "string"}},
         "topics": {"type": "array", "items": {"type": "string"}},
         "web": {"type": "boolean"},
+        "depth": {"type": "string", "enum": ["brief", "full"]},
     },
-    "required": ["kind", "factual", "suggest", "premises", "act", "searches", "topics", "web"],
+    "required": ["kind", "factual", "suggest", "premises", "act", "searches", "topics", "web", "depth"],
     "additionalProperties": False,
 }
 
@@ -173,7 +185,7 @@ def meaning_passages(question, k=12):
     return rows
 
 
-def retrieve(p):
+def retrieve(p, full=False):
     """Each query's hits scored against that query's best (0..1); weak hits dropped; then spread across sources."""
     hits = {}
     for q in p["searches"]:
@@ -190,7 +202,8 @@ def retrieve(p):
     for r in trows:  # passages the graph ties to the topic: a second way in, from every source that covers it
         r["score"] = 0.5
         hits.setdefault(r["id"], r)
-    return diversify(sorted(hits.values(), key=lambda r: -r["score"])), topics
+    ranked = sorted(hits.values(), key=lambda r: -r["score"])
+    return (diversify(ranked, FULL_PASSAGES, FULL_PER_SOURCE) if full else diversify(ranked)), topics
 
 
 def diversify(rows, n=MAX_PASSAGES, per_source=PER_SOURCE):
@@ -244,9 +257,20 @@ Rules:
 - Questions on whether someone can be sued or charged: answer about the act, never about the person. Name the
   provisions that cover the act, what each requires, and its penalty, from the law's text. Don't say whether a
   named person did anything.
-- Short and direct: lead with the answer. Under 120 words; never over 160. Pick the facts that answer the
-  question and leave out background it didn't ask for. Plain sentences, no headings, no bullet points, no
-  preamble, no closing summary.
+- Length: the brief says brief or full.
+  Brief: lead with the answer. Under 120 words; never over 160. Pick the facts that answer the question and
+  leave out background it didn't ask for.
+  Full: an informative account of 250 to 450 words, never over 480, in short paragraphs, organised by source,
+  not by passage. Give each main source its own paragraph, and start the paragraph with a cited sentence of
+  this shape: "<source> (<year>) records that <a fact from it>.", adding what kind of record it is when its name
+  doesn't say. For example: "The Shah Commission's Interim Report II (1978) records that Sushil Kumar issued 67
+  detention orders on the night of 25-26 June 1975." Every uncited sentence is deleted after you write, so a
+  sentence that only introduces a source ("The report covers X") vanishes and leaves its paragraph without a
+  name. Then what it records: its scope, main findings, facts, numbers, decisions, and what
+  it recommended or concluded, always as that source's account. Draw its passages together into one account;
+  don't walk through them one by one. Where sources cover the same point differently, say so. Choose what
+  helps a reader understand the subject and leave out minor detail.
+  Both: plain sentences, no headings, no bullet points, no preamble, no closing summary.
 - Answer the same way however the question is framed and whichever side it seems to favour.
 - The corpus texts are OCR scans: quote only what is legible, and don't correct a source's facts silently.
 
@@ -280,7 +304,8 @@ def answer(question, model=None):
                 "meta": {"usd": round(plan_cost, 4), "seconds": round(time.time() - t0, 1), "plan": p}}
     asked = p["factual"] if p["kind"] == "loaded" and p["factual"] else question
     p["question"] = question
-    picked, topics = retrieve(p)
+    full = p.get("depth") == "full"
+    picked, topics = retrieve(p, full)
     results = list(picked)  # search_result_index -> passage, in the order they appear in the request
 
     brief = [f"Question: {asked}"]
@@ -290,6 +315,7 @@ def answer(question, model=None):
         brief.append(f"Treat it as a question about this act, not the person: {p['act']}")
     if p["web"]:
         brief.append("This likely needs court rulings or recent official records: use web_search.")
+    brief.append(f"Length: {'full' if full else 'brief'}.")
     content = [as_search_result(r) for r in picked] + [{"type": "text", "text": "\n".join(brief)}]
     messages = [{"role": "user", "content": content}]
     # web_search_20250305, not _20260209: the newer one filters results through code and returns no citations
@@ -334,6 +360,7 @@ def answer(question, model=None):
     if out["ok"]:
         total += pages.widen(cl, out["sources"])
         total += verify(cl, out)
+        by_source(out)
     out["kind"] = p["kind"]
     if p["kind"] == "loaded":
         out["notice"], out["answered"], out["suggest"] = LOADED, asked, p["suggest"][:3]
@@ -352,6 +379,10 @@ VERIFY_SCHEMA = {
         "required": ["i", "support"], "additionalProperties": False}}},
     "required": ["claims"], "additionalProperties": False,
 }
+
+
+# a gap sentence says something is missing; one with none of these words isn't one
+_ABSENCE = re.compile(r"\b(?:not|no|none|nothing|neither|nor|without|unclear|silent|unknown)\b|n't", re.I)
 
 
 def verify(cl, out):
@@ -381,25 +412,56 @@ def verify(cl, out):
                "if they state some of it, no if they don't state it. A claim that a source says something is "
                "backed if the quote shows that source saying it. OCR slips in quotes don't count against a claim. "
                "A claim with no quotes: gap if it only says that something was not found or is not established by "
-               "the sources, otherwise no.",
+               "the sources; no for anything else, including a sentence saying what a source records or covers.",
         messages=[{"role": "user", "content": body}])
     verdict = {c["i"]: c["support"] for c in json.loads(next(b.text for b in msg.content if b.type == "text"))["claims"]}
-    kept = []
+    kept, gap = [], False  # gap: a removed sentence opened a paragraph, so the next kept one does
     for k, parts in sentences.items():
         v, cited = verdict.get(k), any(p["cites"] for p in parts)
-        if cited and v == "no":
-            out["removed"] += 1
-            continue
-        if not cited and v not in (None, "gap"):
-            out["unsourced_removed"] += 1
+        if not cited and v == "gap" and not _ABSENCE.search("".join(p["text"] for p in parts)):
+            v = "no"  # in a long answer the checker called intro sentences ("X records evidence on Y") gaps
+        drop = "removed" if cited and v == "no" else "unsourced_removed" if not cited and v not in (None, "gap") else None
+        if drop:
+            out[drop] += 1
+            gap = gap or parts[0]["text"].lstrip(" ").startswith("\n")
             continue
         if cited and v == "partly":
             next(p for p in reversed(parts) if p["cites"])["partly"] = True
+        if gap and kept:
+            parts[0]["text"] = "\n\n" + parts[0]["text"].lstrip()
+        gap = False
         kept += parts
     out["segments"] = kept
     used = {n for s in kept for n in s["cites"]}
     out["sources"] = [s for s in out["sources"] if s["n"] in used]
     return llm.cost(llm.WORKER_MODEL, msg.usage)
+
+
+def by_source(out):
+    """One citation number per source, not per passage, so an answer drawing on five passages of one report shows
+    one number. Each source lists its cited passages (locator, quote, link that opens the scan at the quote) and a
+    link to the source itself; each segment keeps `at` = [[source n, passage index]], the exact passages it cites,
+    for the evals' judge and the page. Sources are numbered in the order the answer first cites them."""
+    groups, num, at = [], {}, {}
+    for s in out["sources"]:
+        key = s.get("slug") or s["url"]
+        if key not in num:
+            num[key] = len(groups) + 1
+            groups.append({"n": num[key], "title": s["title"], "author": s["author"], "year": s["year"],
+                           "standing": s["standing"], "url": s["url"].split("?")[0], "web": s.get("web", False),
+                           "passages": []})
+        g = groups[num[key] - 1]
+        same = next((i for i, x in enumerate(g["passages"]) if x["quote"] == s["quote"]), None)
+        if same is None:
+            same = len(g["passages"])
+            g["passages"].append({"locator": s["locator"], "quote": s["quote"], "url": s["url"]})
+        at[s["n"]] = [g["n"], same]
+    for seg in out["segments"]:
+        seg["at"] = list(dict.fromkeys(tuple(at[n]) for n in seg["cites"] if n in at))
+        seg["at"] = [list(a) for a in seg["at"]]
+        seg["cites"] = list(dict.fromkeys(a[0] for a in seg["at"]))
+    out["sources"] = groups
+    return out
 
 
 _MARKUP = re.compile(r"</?(?:invoke|parameter|function_calls|antml:\w+)\b")
@@ -427,7 +489,7 @@ def render(msg, results):
                     continue
                 src = SOURCES.get(r["source"], {"ia": r["ia"]})
                 key = (r["id"], c.start_block_index)
-                entry = {"title": r["title"], "author": r["author"], "year": r["year"], "locator": r["locator"],
+                entry = {"slug": r["source"], "title": r["title"], "author": r["author"], "year": r["year"], "locator": r["locator"],
                          "standing": STANDINGS.get(r["standing"], r["standing"]), "quote": c.cited_text.strip(),
                          "url": corpus.verify_url(src, c.cited_text)}
             elif c.type == "web_search_result_location":
@@ -451,7 +513,8 @@ def render(msg, results):
     return {"ok": True, "segments": _mark_unsourced(segments), "sources": sources}
 
 
-_SENTENCE_END = re.compile(r"(?<=[.?!])(?=\s)|(?<=[.?!][\"'\u201d\u2019)])(?=\s)")
+# a sentence ends at . ? ! before a space, but not after an initial ("V. P. Menon", "P. C. Chatterjee")
+_SENTENCE_END = re.compile(r"(?<=[.?!])(?<!\b[A-Z]\.)(?=\s)|(?<=[.?!][\"'\u201d\u2019)])(?=\s)")
 
 
 def _mark_unsourced(segments):
@@ -474,7 +537,7 @@ def _mark_unsourced(segments):
         if group and p["text"].lstrip(" ").startswith("\n"):  # a new paragraph starts a new sentence
             close()
         group.append(p)
-        if re.search(r"[.?!][\"'\u201d\u2019)]?\s*$", p["text"]) or p["text"].rstrip(" ").endswith("\n"):
+        if re.search(r"(?<!\b[A-Z])[.?!][\"'\u201d\u2019)]?\s*$", p["text"]) or p["text"].rstrip(" ").endswith("\n"):
             close()
     if group:
         close()
@@ -493,8 +556,9 @@ def plain(out):
     if out.get("unsourced_removed"):
         lines.append(f"({out['unsourced_removed']} sentence(s) removed: no source)")
     for s in out["sources"]:
-        lines.append(f"[{s['n']}] {s['title']}{', ' + s['locator'] if s['locator'] else ''} ({s['standing']})\n"
-                     f"     \"{s['quote'][:240]}\"\n     {s['url']}")
+        lines.append(f"[{s['n']}] {s['title']}, {s['author']} ({s['standing']}) {s['url']}")
+        for x in s["passages"]:
+            lines.append(f"     {x['locator'] or ''}: \"{x['quote'][:240]}\"\n     {x['url']}")
     return "\n".join(lines)
 
 

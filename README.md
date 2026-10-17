@@ -1,7 +1,8 @@
 # indiafacts
 
-Ask a question about Indian history, law, politics or geopolitics. Get a short answer in which every sentence
-links to the passage it comes from, with the kind of evidence that passage is. No opinions.
+Ask a question about Indian history, law, politics or geopolitics. Get an answer in which every sentence
+links to its source, with the exact passages quoted and the kind of evidence each source is: short for a narrow
+question, a fuller account (a paragraph per main source) for a broad one. No opinions.
 
 Runs at [quirkyagents.com/wizard/projects/indiafacts](https://quirkyagents.com/wizard/projects/indiafacts/) once launched.
 
