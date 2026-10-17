@@ -79,11 +79,20 @@ def _looks_like_text(p):
     return letters / len(p) > 0.6 and sum(len(w) > 1 for w in words) / len(words) > 0.6
 
 
+# "1. Ins. by the Constitution (Forty-fourth Amendment) Act, 1978, s. 20 (w.e.f. 1-8-1979)." Mostly numbers, so
+# the text test drops them, but they are the record of which Act changed which provision, and when.
+AMENDMENT_NOTE = re.compile(r"\b(?:Ins|Subs|Added|Rep|Omitted|omitted|inserted|substituted|added|repealed)\.?,? (?:by|w\.e\.f)\b")
+
+
+def _is_amendment_note(p):
+    return len(p) >= 20 and not _looks_like_text(p) and bool(AMENDMENT_NOTE.search(p))
+
+
 def paragraphs(text):
     text = unicodedata.normalize("NFKC", text).replace("\x0c", "\n\n").replace("\r", "")
     for raw in re.split(r"\n\s*\n", text):
         p = _clean_paragraph(raw)
-        if _looks_like_text(p):
+        if _looks_like_text(p) or _is_amendment_note(p):
             yield p
 
 
@@ -137,7 +146,7 @@ def passages(src, text):
         return {"seq": seq, "locator": cur_loc, "text": body, "blocks": blocks(body)}
 
     for p in paragraphs(text):
-        if pattern:
+        if pattern and not _is_amendment_note(p):  # a note's "1. Subs. by ..." is not section 1
             m = pattern.search(p) if kind == "sitting" else pattern.match(p)
             if m:
                 if cur and kind != "sitting":
