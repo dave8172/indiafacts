@@ -294,24 +294,41 @@
     {
       "slug": "menon-transfer",
       "ia": "the-transfer-of-power-in-india",
+      "drop": "Copyright © www\\.sanipanhwar\\.com|Sri Satguru Jagjit Singh Ji eLibrary",
+      "parts": [
+        [
+          "^PREFACE\\s*$",
+          "^CONTENTS\\s*$"
+        ],
+        [
+          "^THE GOAL OF BRITISH POLICY",
+          null
+        ]
+      ],
       "title": "The Transfer of Power in India (1957)",
       "author": "V. P. Menon",
       "year": 1957,
       "standing": "first-hand",
       "locator": "none",
       "rights": "author d. 1965",
-      "note": "Reforms Commissioner to the Viceroy; drafted the partition plan of June 1947."
+      "note": "Reforms Commissioner to the Viceroy; drafted the partition plan of June 1947. A 2020 retyped copy (Sani H. Panhwar); only Menon's preface and text are used, not the reproducer's note or page headers."
     },
     {
       "slug": "nehru-autobiography",
       "ia": "dli.bengal.10689.12675",
+      "parts": [
+        [
+          "^PREFACE TO THE 1962 EDITION",
+          null
+        ]
+      ],
       "title": "An Autobiography (1936)",
       "author": "Jawaharlal Nehru",
       "year": 1936,
       "standing": "first-hand",
       "locator": "none",
       "rights": "author d. 1964",
-      "note": "Written in prison, 1934-35."
+      "note": "Written in prison, 1934-35. From Nehru's prefaces on; the 1982 reprint's foreword by Indira Gandhi, in copyright, is left out."
     },
     {
       "slug": "gandhi-autobiography",
@@ -327,13 +344,19 @@
     {
       "slug": "nehru-discovery",
       "ia": "in.ernet.dli.2015.98835",
+      "parts": [
+        [
+          "^PREFACE\\s*$",
+          null
+        ]
+      ],
       "title": "The Discovery of India (1946)",
       "author": "Jawaharlal Nehru",
       "year": 1946,
       "standing": "contemporary",
       "locator": "none",
       "rights": "author d. 1964",
-      "note": "History and argument, written in Ahmednagar Fort prison, 1944."
+      "note": "History and argument, written in Ahmednagar Fort prison, 1944. From Nehru's preface on; the 1989 edition's foreword by Indira Gandhi, in copyright, is left out."
     },
     {
       "slug": "prasad-divided",
@@ -359,14 +382,14 @@
     },
     {
       "slug": "ambedkar-caste",
-      "ia": "AnnihilationOfCasteDr.B.r.ambedkar",
-      "title": "Annihilation of Caste (1936)",
+      "ia": "in.ernet.dli.2015.71655",
+      "title": "Annihilation of Caste, with a Reply to Mahatma Gandhi (third edition, 1945)",
       "author": "B. R. Ambedkar",
       "year": 1936,
       "standing": "contemporary",
       "locator": "none",
       "rights": "author d. 1956",
-      "note": "Undelivered address to the Jat-Pat-Todak Mandal, Lahore."
+      "note": "Undelivered address to the Jat-Pat-Todak Mandal, Lahore. The 1945 edition: Ambedkar's text, his prefaces, and Gandhi's Harijan articles with Ambedkar's reply. Not the 2014 annotated edition, whose introduction and notes are in copyright."
     },
     {
       "slug": "hind-swaraj",

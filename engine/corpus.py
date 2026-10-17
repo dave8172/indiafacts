@@ -64,17 +64,24 @@ def fetch(src, force=False):
 
 
 def text(src):
-    """The source's own text. A compilation is cut into the sources it holds: `parts` lists [start, end] line
-    patterns, each part running from the first line matching start to the line before the next matching end."""
+    """The source's own text. `drop` is a pattern for lines to leave out (a reproducer's page headers). `parts`
+    lists [start, end] line patterns: each part runs from the first line matching start to the line before the
+    next one matching end (null: to the end). A compilation is cut into the sources it holds this way, and a
+    later editor's foreword or notes are left out."""
     raw = fetch(src)
+    lines = raw.split("\n")
+    if src.get("drop"):
+        lines = [l for l in lines if not re.search(src["drop"], l)]
     if not src.get("parts"):
-        return raw
-    lines, out, i = raw.split("\n"), [], 0
+        return "\n".join(lines)
+    out, i = [], 0
     for start, end in src["parts"]:
         a = next((k for k in range(i, len(lines)) if re.search(start, lines[k])), None)
-        b = next((k for k in range(a + 1, len(lines)) if re.search(end, lines[k])), None) if a is not None else None
+        if a is None:
+            raise RuntimeError(f"{src['slug']}: part start {start!r} not found")
+        b = len(lines) if end is None else next((k for k in range(a + 1, len(lines)) if re.search(end, lines[k])), None)
         if b is None:
-            raise RuntimeError(f"{src['slug']}: part {start!r} .. {end!r} not found")
+            raise RuntimeError(f"{src['slug']}: part end {end!r} not found")
         out.append("\n".join(lines[a:b]))
         i = b
     return "\n\n".join(out)
