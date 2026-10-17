@@ -219,8 +219,11 @@ ANSWER_SYSTEM = """You are indiafacts: you answer questions about Indian history
 facts from sources, like a careful historian or court reporter. You hold no views and give none.
 
 Rules:
-- Every factual sentence rests on a cited source. If the sources given (and your searches) don't establish
-  something, say plainly that these sources don't, instead of filling the gap from memory.
+- Every factual sentence rests on a cited source, the first one too: open with a cited fact, not a summary of
+  what follows. Never fill a gap from memory. If the sources (and your
+  searches) don't establish what the question asks, say so in one sentence at the end. Never comment on the
+  passages themselves ("these sources don't show", "this passage doesn't give the year"): search for a missing
+  fact such as a date, or leave it out.
 - Attribute by kind of evidence. Law and rulings: state what the text says ("Article 352 lets the President...").
   Reports, records, memoirs and arguments: say who says it ("The Shah Commission found...", "Menon writes...").
   The government's or a party's own account is that party's account. Never present one account as settled
@@ -324,40 +327,55 @@ def answer(question):
 VERIFY_SCHEMA = {
     "type": "object",
     "properties": {"claims": {"type": "array", "items": {"type": "object", "properties": {
-        "i": {"type": "integer"}, "support": {"type": "string", "enum": ["yes", "partly", "no"]}},
+        "i": {"type": "integer"}, "support": {"type": "string", "enum": ["yes", "partly", "no", "gap"]}},
         "required": ["i", "support"], "additionalProperties": False}}},
     "required": ["claims"], "additionalProperties": False,
 }
 
 
 def verify(cl, out):
-    """Second check on every cited sentence: do its quotes actually say it? The API already guarantees each quote
-    is in the source; this checks the sentence doesn't go beyond its quotes. "no" sentences are removed and
-    counted; "partly" ones stay, labelled. Returns the cost."""
+    """Second check, one whole sentence at a time. Cited: do its quotes state it? (The API already guarantees each
+    quote is in the source; this checks the sentence doesn't go beyond its quotes.) Uncited: does it only say what
+    the sources don't establish? Unbacked sentences and uncited statements of fact are removed and counted;
+    "partly" ones stay, labelled. Returns the cost."""
     quotes = {s["n"]: s["quote"][:900] for s in out["sources"]}
-    items = [(i, s) for i, s in enumerate(out["segments"]) if s["cites"]]
-    if not items:
-        out["removed"] = 0
+    sentences = {}
+    for s in out["segments"]:
+        sentences.setdefault(s["sent"], []).append(s)
+    claims = []
+    for k, parts in sentences.items():
+        text = "".join(p["text"] for p in parts).strip()
+        if len(re.sub(r"\W", "", text)) > 25:
+            claims.append((k, text, list(dict.fromkeys(n for p in parts for n in p["cites"] if n in quotes))))
+    out["removed"] = out["unsourced_removed"] = 0
+    if not claims:
         return 0.0
-    body = "\n\n".join(f"<claim i=\"{i}\">{s['text'].strip()}</claim>\n"
-                        + "\n".join(f"<quote>{quotes[n]}</quote>" for n in s["cites"] if n in quotes) for i, s in items)
+    body = "\n\n".join(f"<claim i=\"{k}\">{text}</claim>\n"
+                        + ("\n".join(f"<quote>{quotes[n]}</quote>" for n in cites) or "<no-quotes/>")
+                        for k, text, cites in claims)
     msg = cl.messages.create(
         model=llm.WORKER_MODEL, max_tokens=2000, thinking={"type": "disabled"},
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": VERIFY_SCHEMA}},
         system="You check citations. For each claim, judge only from its quotes: yes if the quotes state it, partly "
                "if they state some of it, no if they don't state it. A claim that a source says something is "
-               "backed if the quote shows that source saying it. OCR slips in quotes don't count against a claim.",
+               "backed if the quote shows that source saying it. OCR slips in quotes don't count against a claim. "
+               "A claim with no quotes: gap if it only says that something was not found or is not established by "
+               "the sources, otherwise no.",
         messages=[{"role": "user", "content": body}])
     verdict = {c["i"]: c["support"] for c in json.loads(next(b.text for b in msg.content if b.type == "text"))["claims"]}
-    kept, removed = [], 0
-    for i, s in enumerate(out["segments"]):
-        v = verdict.get(i)
-        if v == "no":
-            removed += 1
+    kept = []
+    for k, parts in sentences.items():
+        v, cited = verdict.get(k), any(p["cites"] for p in parts)
+        if cited and v == "no":
+            out["removed"] += 1
             continue
-        s["partly"] = v == "partly"
-        kept.append(s)
-    out["segments"], out["removed"] = kept, removed
+        if not cited and v not in (None, "gap"):
+            out["unsourced_removed"] += 1
+            continue
+        if cited and v == "partly":
+            next(p for p in reversed(parts) if p["cites"])["partly"] = True
+        kept += parts
+    out["segments"] = kept
     used = {n for s in kept for n in s["cites"]}
     out["sources"] = [s for s in out["sources"] if s["n"] in used]
     return llm.cost(llm.WORKER_MODEL, msg.usage)
@@ -396,9 +414,40 @@ def render(msg, results):
         text = b.text
         if segments and not nums and not text.strip():
             continue
-        segments.append({"text": text, "cites": nums,
-                         "unsourced": not nums and len(re.sub(r"\W", "", text)) > 25 and not text.strip().endswith(":")})
-    return {"ok": True, "segments": segments, "sources": sources}
+        if segments and segments[-1]["text"][-1:] in ".?!" and text[:1].isalnum():
+            text = " " + text  # two cited sentences in a row come back unspaced
+        segments.append({"text": text, "cites": nums})
+    return {"ok": True, "segments": _mark_unsourced(segments), "sources": sources}
+
+
+_SENTENCE_END = re.compile(r"(?<=[.?!])(?=\s)|(?<=[.?!][\"'\u201d\u2019)])(?=\s)")
+
+
+def _mark_unsourced(segments):
+    """Flag sentences with no citation in any part. Citations split a sentence into an uncited lead-in ("Menon
+    writes that") and the cited quote, so uncited text is cut at sentence ends and each piece joins its sentence."""
+    pieces = []
+    for s in segments:
+        parts = [s["text"]] if s["cites"] else [t for t in _SENTENCE_END.split(s["text"]) if t]
+        pieces += [{**s, "text": t} for t in parts]
+    out, group = [], []
+
+    def close():
+        text = "".join(x["text"] for x in group)
+        bare = not any(x["cites"] for x in group) and len(re.sub(r"\W", "", text)) > 25 and not text.strip().endswith(":")
+        n = out[-1]["sent"] + 1 if out else 0
+        out.extend({**x, "unsourced": bare and not x["cites"], "sent": n} for x in group)
+        group.clear()
+
+    for p in pieces:
+        if group and p["text"].lstrip(" ").startswith("\n"):  # a new paragraph starts a new sentence
+            close()
+        group.append(p)
+        if re.search(r"[.?!][\"'\u201d\u2019)]?\s*$", p["text"]) or p["text"].rstrip(" ").endswith("\n"):
+            close()
+    if group:
+        close()
+    return out
 
 
 def plain(out):
@@ -409,7 +458,9 @@ def plain(out):
                    + (" [PARTLY BACKED]" if s.get("partly") else "") for s in out["segments"])
     lines = ([f"{out['notice']} {out['answered']}", ""] if out.get("kind") == "loaded" else []) + [text.strip(), ""]
     if out.get("removed"):
-        lines.append(f"({out['removed']} sentence(s) removed: their sources did not back them)")
+        lines.append(f"({out['removed']} sentence(s) removed: their quotes did not back them)")
+    if out.get("unsourced_removed"):
+        lines.append(f"({out['unsourced_removed']} sentence(s) removed: no source)")
     for s in out["sources"]:
         lines.append(f"[{s['n']}] {s['title']}{', ' + s['locator'] if s['locator'] else ''} ({s['standing']})\n"
                      f"     \"{s['quote'][:240]}\"\n     {s['url']}")
