@@ -16,7 +16,8 @@ Runs at [quirkyagents.com/wizard/projects/indiafacts](https://quirkyagents.com/w
     questions of fact on the same subject.
 - **Every sentence is cited, and every citation is checked twice.** Passages go to the model as search
   results with citations on, so every quote shown is text that really is in the source (the API enforces
-  this, not the model). Then a second model reads each sentence beside its quotes. A sentence its quotes don't
+  this, not the model). Web search quotes only ~150 characters of a page, so each cited page is fetched again
+  and its quote widened to the text around it; a page that can't be fetched keeps the short quote. Then a second model reads each sentence beside its quotes. A sentence its quotes don't
   back is removed and counted, and one they back only in part is labelled.
 - **It says what kind of evidence each source is:** the law itself, a court record, a commission report,
   an official record, a first-hand account, writing from the time that argues a view, history written

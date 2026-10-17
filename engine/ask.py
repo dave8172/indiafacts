@@ -7,6 +7,8 @@
 3. Answer (Sonnet 5.5): the passages go in as search results with citations on, so every quote the answer
    shows is text that really is in the source (the API guarantees it). The writer may search the corpus again, or
    search the web on official and court sites only. A sentence with no citation is marked as unsourced.
+4. Check (Haiku 5.5): each web quote is widened from its page (`pages.py`), then every sentence is read beside
+   its quotes; one they don't back is removed.
 """
 import json
 import re
@@ -14,7 +16,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from . import corpus, llm, store
+from . import corpus, llm, pages, store
 
 MAX_PASSAGES = 16
 PER_SOURCE = 3
@@ -330,6 +332,7 @@ def answer(question, model=None):
         final = turn()
     out = render(final, results)
     if out["ok"]:
+        total += pages.widen(cl, out["sources"])
         total += verify(cl, out)
     out["kind"] = p["kind"]
     if p["kind"] == "loaded":
@@ -430,7 +433,8 @@ def render(msg, results):
             elif c.type == "web_search_result_location":
                 key = (c.url, (c.cited_text or "")[:60])
                 entry = {"title": c.title, "author": urlparse(c.url).netloc, "year": None, "locator": None,
-                         "standing": web_standing(c.url), "quote": (c.cited_text or "").strip(), "url": c.url}
+                         "standing": web_standing(c.url), "quote": (c.cited_text or "").strip(), "url": c.url,
+                         "web": True}
             else:
                 continue
             if key not in index:
