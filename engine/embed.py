@@ -4,8 +4,8 @@ Word search finds exact names and numbers ("Article 352", "Nizam"); vectors find
 or in another language (a question in Hindi finds English passages). Answers use both.
 
 The heavy part, embedding the whole corpus, runs once on any machine with a GPU; the server only embeds each
-question (~0.5 s on one CPU core). Both sides run the same ONNX export of the same pinned model, so their vectors
-agree; `check` measures that.
+question (~60 ms on one CPU core). Both sides run the same ONNX export of the same pinned model, so their vectors
+agree closely; `check` measures how closely.
 
   server:  python -m engine embed export            passages without a current vector -> data/passages.jsonl
   GPU box: python -m engine embed run data/passages.jsonl [--provider dml|cuda|cpu]   -> data/vectors-new.npz
@@ -35,7 +35,9 @@ DIM = 768
 MAX_TOKENS = 512
 QUERY_PROMPT = "task: search result | query: "
 DOC_PROMPT = "title: {title} | text: "
-QUERY_VARIANT = os.environ.get("IF_EMBED_VARIANT", "model_quantized")  # int8 on the server's CPU
+# The server embeds questions with the 4-bit export: 542 MB resident and ~60 ms a question on one core, where the
+# int8 export expands its 262k-token embedding table at run time (1.4 GB, ~0.3-0.7 s). Measured 2026-10-17.
+QUERY_VARIANT = os.environ.get("IF_EMBED_VARIANT", "model_q4")
 
 
 def text_hash(title, text):
