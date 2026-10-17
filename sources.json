@@ -24,35 +24,128 @@
     {
       "slug": "bns",
       "ia": "the-bharatiya-nyaya-sanhita-2023-with-official-notes",
-      "title": "The Bharatiya Nyaya Sanhita, 2023 (with IPC comparison and Gazette notes)",
+      "file": "bns",
+      "parts": [
+        [
+          "REGISTERED NO\\.",
+          "^Corresponding Section Table Of"
+        ]
+      ],
+      "title": "The Bharatiya Nyaya Sanhita, 2023",
       "author": "Government of India",
       "year": 2023,
       "standing": "law",
-      "locator": "section",
+      "locator": "gazette-section",
       "rights": "statute text, s.52(1)(q)",
-      "note": "In force from 1 July 2024; replaced the Indian Penal Code, 1860. Compilation also carries IPC text for comparison."
+      "note": "In force from 1 July 2024; replaced the Indian Penal Code, 1860 (s. 358, repeal and savings). Only the Gazette text is used. The compilation's correspondence tables and index, its unattributed comparative notes, and Project 39A's (National Law University Delhi) annotated comparison and analysis, which are in copyright, are left out."
     },
     {
       "slug": "bnss",
       "ia": "the-bharatiya-nagarik-suraksha-sanhita-2023-with-official-notes",
-      "title": "The Bharatiya Nagarik Suraksha Sanhita, 2023 (with CrPC comparison and Gazette notes)",
+      "file": "bnss",
+      "parts": [
+        [
+          "REGISTERED NO\\.",
+          "^Corresponding Section Table Of"
+        ]
+      ],
+      "title": "The Bharatiya Nagarik Suraksha Sanhita, 2023",
       "author": "Government of India",
       "year": 2023,
       "standing": "law",
-      "locator": "section",
+      "locator": "gazette-section",
       "rights": "statute text, s.52(1)(q)",
-      "note": "In force from 1 July 2024; replaced the Code of Criminal Procedure, 1973."
+      "note": "In force from 1 July 2024; replaced the Code of Criminal Procedure, 1973 (s. 531, repeal and savings). Only the Gazette text is used. The compilation's correspondence tables and index, its unattributed comparative notes, and Project 39A's (National Law University Delhi) annotated comparison and analysis, which are in copyright, are left out."
     },
     {
       "slug": "bsa",
       "ia": "the-bharatiya-sakshya-adhiniyam-2023-with-official-notes",
-      "title": "The Bharatiya Sakshya Adhiniyam, 2023 (with Evidence Act comparison and Gazette notes)",
+      "file": "bsa",
+      "parts": [
+        [
+          "REGISTERED NO\\.",
+          "^Corresponding Section Table Of"
+        ]
+      ],
+      "title": "The Bharatiya Sakshya Adhiniyam, 2023",
       "author": "Government of India",
       "year": 2023,
       "standing": "law",
+      "locator": "gazette-section",
+      "rights": "statute text, s.52(1)(q)",
+      "note": "In force from 1 July 2024; replaced the Indian Evidence Act, 1872 (s. 170, repeal and savings). Only the Gazette text is used. The compilation's correspondence tables and index, its unattributed comparative notes, and Project 39A's (National Law University Delhi) annotated comparison and analysis, which are in copyright, are left out."
+    },
+    {
+      "slug": "commencement-2024",
+      "ia": "the-bharatiya-nyaya-sanhita-2023-with-official-notes",
+      "file": "bns",
+      "parts": [
+        [
+          "^MINISTRY OF HOME AFFAIRS",
+          "^THE INDIAN PENAL CODE\\s*$"
+        ]
+      ],
+      "title": "Notifications bringing the BNS, BNSS and BSA into force",
+      "author": "Ministry of Home Affairs",
+      "year": 2024,
+      "standing": "law",
+      "locator": "none",
+      "rights": "Gazette of India, s.52(1)(q)",
+      "note": "Gazette of India, Extraordinary, 23 February 2024: S.O. 848(E), 849(E) and 850(E) appoint 1 July 2024 as the date the three Acts come into force. Taken from the BNS compilation."
+    },
+    {
+      "slug": "ipc",
+      "ia": "the-bharatiya-nyaya-sanhita-2023-with-official-notes",
+      "file": "bns",
+      "parts": [
+        [
+          "^THE INDIAN PENAL CODE\\s*$",
+          "^Bharatiya Nyaya Sanhita, 2023 \\(BNS\\) &"
+        ]
+      ],
+      "title": "The Indian Penal Code, 1860 (as amended, before its repeal)",
+      "author": "Government of India",
+      "year": 1860,
+      "standing": "law",
       "locator": "section",
       "rights": "statute text, s.52(1)(q)",
-      "note": "In force from 1 July 2024; replaced the Indian Evidence Act, 1872."
+      "note": "Repealed from 1 July 2024 by the Bharatiya Nyaya Sanhita, 2023 (s. 358, repeal and savings). Text from the same compilation as the BNS (the-bharatiya-nyaya-sanhita-2023-with-official-notes), which prints it for comparison."
+    },
+    {
+      "slug": "crpc",
+      "ia": "the-bharatiya-nagarik-suraksha-sanhita-2023-with-official-notes",
+      "file": "bnss",
+      "parts": [
+        [
+          "^THE CODE OF CRIMINAL PROCEDURE, 1973\\s*$",
+          "^The Bharatiya Nagarik Suraksha Sanhita, 2023 \\(BNSS\\)\\s*$"
+        ]
+      ],
+      "title": "The Code of Criminal Procedure, 1973 (as amended, before its repeal)",
+      "author": "Government of India",
+      "year": 1973,
+      "standing": "law",
+      "locator": "section",
+      "rights": "statute text, s.52(1)(q)",
+      "note": "Repealed from 1 July 2024 by the Bharatiya Nagarik Suraksha Sanhita, 2023 (s. 531, repeal and savings). Text from the same compilation as the BNSS (the-bharatiya-nagarik-suraksha-sanhita-2023-with-official-notes), which prints it for comparison."
+    },
+    {
+      "slug": "evidence-act",
+      "ia": "the-bharatiya-sakshya-adhiniyam-2023-with-official-notes",
+      "file": "bsa",
+      "parts": [
+        [
+          "^THE INDIAN EVIDENCE ACT, 1872\\s*$",
+          "^Bharatiya Sakshya Adhiniyam, 2023 \\(BSA\\)\\s*$"
+        ]
+      ],
+      "title": "The Indian Evidence Act, 1872 (as amended, before its repeal)",
+      "author": "Government of India",
+      "year": 1872,
+      "standing": "law",
+      "locator": "section",
+      "rights": "statute text, s.52(1)(q)",
+      "note": "Repealed from 1 July 2024 by the Bharatiya Sakshya Adhiniyam, 2023 (s. 170, repeal and savings). Its text here is marked \"Last updated: 13-3-2020\". Text from the same compilation as the BSA (the-bharatiya-sakshya-adhiniyam-2023-with-official-notes), which prints it for comparison."
     },
     {
       "slug": "cad",

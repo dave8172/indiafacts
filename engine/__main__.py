@@ -30,11 +30,10 @@ def main(argv):
     elif cmd == "build":
         store.init()
         for s in _pick(args):
-            path = corpus.RAW / f"{s['slug']}.txt"
-            if not path.exists():
+            if not (corpus.RAW / f"{s.get('file', s['slug'])}.txt").exists():
                 print(f"{s['slug']:24} not fetched")
                 continue
-            text = path.read_text()
+            text = corpus.text(s)
             rows = list(corpus.passages(s, text))
             store.load_source(s, rows, len(text))
             located = sum(1 for r in rows if r["locator"])

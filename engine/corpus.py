@@ -39,8 +39,8 @@ def _get(url, timeout=120):
 
 
 def fetch(src, force=False):
-    """The source's OCR text, cached in data/raw/<slug>.txt."""
-    out = RAW / f"{src['slug']}.txt"
+    """The OCR text of the source's archive.org item, cached in data/raw/<file or slug>.txt."""
+    out = RAW / f"{src.get('file', src['slug'])}.txt"
     if out.exists() and not force:
         return out.read_text()
     meta = json.loads(_get(f"https://archive.org/metadata/{src['ia']}"))
@@ -61,6 +61,23 @@ def fetch(src, force=False):
     RAW.mkdir(parents=True, exist_ok=True)
     out.write_text(text)
     return text
+
+
+def text(src):
+    """The source's own text. A compilation is cut into the sources it holds: `parts` lists [start, end] line
+    patterns, each part running from the first line matching start to the line before the next matching end."""
+    raw = fetch(src)
+    if not src.get("parts"):
+        return raw
+    lines, out, i = raw.split("\n"), [], 0
+    for start, end in src["parts"]:
+        a = next((k for k in range(i, len(lines)) if re.search(start, lines[k])), None)
+        b = next((k for k in range(a + 1, len(lines)) if re.search(end, lines[k])), None) if a is not None else None
+        if b is None:
+            raise RuntimeError(f"{src['slug']}: part {start!r} .. {end!r} not found")
+        out.append("\n".join(lines[a:b]))
+        i = b
+    return "\n\n".join(out)
 
 
 # --- cleaning -------------------------------------------------------------------------------------------
@@ -108,6 +125,8 @@ LOCATORS = {
                 lambda m: f"Article {m.group(1)}"),
     "section": (re.compile(r"^(\d{1,3}[A-Z]?)\.\s+(?:\(1\)\s+)?[A-Z][^.]{3,140}[.—–-]"),
                 lambda m: f"section {m.group(1)}"),
+    # Gazette print, heading in the margin: "103. (1) Whoever commits murder shall be punished..."
+    "gazette-section": (re.compile(r"^(\d{1,3})\.\s+(?:\([0-9IJl/i]\)\s+)?[A-Z]"), lambda m: f"section {m.group(1)}"),
     # "16.17 The story related by..."
     "para": (re.compile(r"^(\d{1,2}\.\d{1,3})\.?\s+[A-Z(]"), lambda m: f"para {m.group(1)}"),
 }
@@ -137,6 +156,7 @@ def passages(src, text):
     kind = src.get("locator", "none")
     pattern, label = LOCATORS.get(kind, (None, None))
     locator, cur, cur_loc, seq = None, [], None, 0
+    last = 0  # gazette sections run in order, so a stray "4. The ..." inside a later section is not section 4
 
     def emit():
         nonlocal cur, seq
@@ -148,6 +168,9 @@ def passages(src, text):
     for p in paragraphs(text):
         if pattern and not _is_amendment_note(p):  # a note's "1. Subs. by ..." is not section 1
             m = pattern.search(p) if kind == "sitting" else pattern.match(p)
+            if m and kind == "gazette-section":
+                n = int(m.group(1))
+                m, last = (m, n) if last < n <= last + 10 else (None, last)
             if m:
                 if cur and kind != "sitting":
                     yield emit()

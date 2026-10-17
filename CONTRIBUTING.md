@@ -7,6 +7,8 @@ Pull requests are welcome. These rules keep the tool what it says it is.
   an Act, Gazette notice, judgment or commission report laid before a legislature. If you can't state one,
   the source can't go in, however good it is.
 - Never add a copy someone uploaded without the right to share it.
+- A compilation is several sources. Give each its own entry, cut from the shared file with `file` and `parts`
+  (see the BNS entries), and leave out any part you can't state a rights basis for.
 - Say what kind of evidence it is (`standing`) and keep its `note` to plain facts: what it is, who wrote it,
   when. No description of whether it is reliable, biased or important.
 - Prefer sources that add another side's record of the same events.
