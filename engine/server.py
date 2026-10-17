@@ -9,7 +9,7 @@ must also carry `X-Engine-Key` (env IF_ENGINE_KEY).
   GET  /indiafacts/health        -> {ok, sources, passages, topics, edges, today_usd, cap_usd}
 
 Nothing about the asker is read, and the question is not stored: only each answer's cost goes in the ledger
-(runs/spend.jsonl). Public spend stops at IF_DAILY_USD a day (UTC).
+(runs/spend.jsonl). Public spend stops at IF_DAILY_USD a day (UTC); only answers this server gives count (`by: public` on the ledger).
 """
 import hmac
 import json
@@ -53,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authorised():
             return self._send(401, {"ok": False})
         if self.path == "/indiafacts/health":
-            return self._send(200, {"ok": True, **store.stats(), "today_usd": round(llm.spent("answer", _today_start()), 3),
+            return self._send(200, {"ok": True, **store.stats(), "today_usd": round(llm.spent("answer", _today_start(), by="public"), 3),
                                     "cap_usd": DAILY_USD})
         self._send(404, {"ok": False})
 
@@ -69,7 +69,7 @@ class Handler(BaseHTTPRequestHandler):
         q = " ".join(str(body.get("question") or "").split())
         if not 8 <= len(q) <= 400:
             return self._send(200, {"ok": False, "reason": "invalid"})
-        if llm.spent("answer", _today_start()) >= DAILY_USD:
+        if llm.spent("answer", _today_start(), by="public") >= DAILY_USD:
             return self._send(200, {"ok": False, "reason": "budget"})
         if not SLOTS.acquire(timeout=20):
             return self._send(200, {"ok": False, "reason": "busy"})
@@ -85,6 +85,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    llm.ORIGIN = "public"  # the daily cap counts only what this server spends
     port = int(os.environ.get("PORT", "8080"))
     print(f"indiafacts on :{port}, cap ${DAILY_USD}/day", flush=True)
     ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()

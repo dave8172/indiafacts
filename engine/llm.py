@@ -41,18 +41,24 @@ def cost(model, usage, batch=False):
     return c * (0.5 if batch else 1) + searches * WEB_SEARCH
 
 
+# Who is spending: "public" when the server answers the site (server.main sets it), "local" for the command line
+# and evals. The public daily cap counts only "public", so a day of evals can't lock the site out.
+ORIGIN = "local"
+
+
 def record(kind, dollars, **extra):
     LEDGER.parent.mkdir(parents=True, exist_ok=True)
     with LEDGER.open("a") as f:
-        f.write(json.dumps({"t": round(time.time()), "kind": kind, "usd": round(dollars, 5), **extra}) + "\n")
+        f.write(json.dumps({"t": round(time.time()), "kind": kind, "usd": round(dollars, 5), "by": ORIGIN, **extra}) + "\n")
 
 
-def spent(kind=None, since=0):
+def spent(kind=None, since=0, by=None):
+    """Dollars on the ledger since a time; by kind and by origin when given (lines before 2026-10-17 have no origin)."""
     if not LEDGER.exists():
         return 0.0
     total = 0.0
     for line in LEDGER.read_text().splitlines():
         r = json.loads(line)
-        if r["t"] >= since and (kind is None or r["kind"] == kind):
+        if r["t"] >= since and (kind is None or r["kind"] == kind) and (by is None or r.get("by") == by):
             total += r["usd"]
     return total
