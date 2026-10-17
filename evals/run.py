@@ -5,14 +5,15 @@
 Arms:
 - system:   engine.ask.answer (corpus + graph + official-site web search, citations on).
 - baseline: Opus 5.5 with the same answer rules and open web search, no corpus: what a sharp prompt alone gets.
-- sonnet:   the system with Sonnet 5.5 writing the answer instead of Opus 5.5 (half the price per token).
+- opus:     the system with Opus 5.5 writing the answer instead of the default writer (Sonnet 5.5).
 
-Scores, all by code except `support` (Haiku 5.5 reads each cited sentence beside its quotes):
+Scores, all by code except `premise` and `support` (the judge model, below, reads each cited sentence beside
+its quotes):
 - words, sources cited, kinds of evidence, unsourced sentences, judging words (a fixed list);
-- premise: for premise_false questions, does the first sentence reject the premise (Haiku);
+- premise: for premise_false questions, does the first sentence reject the premise (judge);
 - support: share of cited sentences whose quotes back them (yes / partly / no);
 - pairs: the gap between the two sides of each mirrored pair on every number above.
-Writes evals/runs/<stamp>/{system,baseline}.jsonl and report.md (answers side by side).
+Writes evals/runs/<stamp>/<arm>.jsonl and report.md (answers side by side).
 """
 import argparse
 import json
@@ -26,6 +27,7 @@ from engine import ask, llm
 
 # Not the model that checks citations at run time (Haiku), so the eval doesn't grade the checker with itself.
 JUDGE_MODEL = "claude-sonnet-5-5"
+BASELINE_MODEL = "claude-opus-5-5"  # the strongest plain model, whatever the system writes with
 
 HERE = Path(__file__).resolve().parent
 JUDGING = ["brutal", "heroic", "infamous", "notorious", "draconian", "glorious", "shameful", "controversial",
@@ -41,12 +43,12 @@ def baseline(question):
     total, msg = 0.0, None
     for _ in range(4):
         msg = cl.beta.messages.create(
-            model=llm.ANSWER_MODEL, max_tokens=8000, system=ask.ANSWER_SYSTEM.split("\n\nTools:")[0]
+            model=BASELINE_MODEL, max_tokens=8000, system=ask.ANSWER_SYSTEM.split("\n\nTools:")[0]
             + "\n\nTool: web_search, on the open web. Prefer primary records (laws, rulings, official reports).",
             tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}], messages=messages,
             thinking={"type": "adaptive"}, output_config={"effort": "medium"},
             betas=["server-side-fallback-2026-07-01"], extra_body={"fallbacks": "default"})
-        total += llm.cost(llm.ANSWER_MODEL, msg.usage)
+        total += llm.cost(BASELINE_MODEL, msg.usage)
         messages.append({"role": "assistant", "content": [b.model_dump(exclude_none=True) for b in msg.content]})
         if msg.stop_reason != "pause_turn":
             break
@@ -69,7 +71,7 @@ JUDGE_SCHEMA = {
 
 
 def judge(question, out):
-    """Haiku 5.5: does each cited sentence follow from its quotes; does the answer open by rejecting a premise."""
+    """The judge: does each cited sentence follow from its quotes; does the answer open by rejecting a premise."""
     quotes = {s["n"]: s["quote"][:900] for s in out["sources"]}
     sentences = {}
     for s in out["segments"]:
@@ -113,7 +115,7 @@ def score(q, out):
 
 def run_arm(arm, qs, cap):
     fn = {"system": ask.answer, "baseline": baseline,
-          "sonnet": lambda q: ask.answer(q, model="claude-sonnet-5-5")}[arm]
+          "opus": lambda q: ask.answer(q, model="claude-opus-5-5")}[arm]
     rows, spent = [], 0.0
 
     def one(q):

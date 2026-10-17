@@ -32,7 +32,7 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 | `engine/corpus.py` | fetch OCR text (archive.org `/stream/`; the data nodes reset TLS from this box), clean, cut into ~1,200-char passages of 1-2-sentence blocks, locators (article, section, para, sitting date) |
 | `engine/store.py` | Postgres schema `indiafacts` in the site DB: sources, passages (FTS), topics, passage_topics, topic_edges |
 | `engine/graph.py` | topic tagging (Haiku 5.5, Batch API, 6 passages per request, Wikipedia titles as names) and co-occurrence edges |
-| `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + graph, spread across sources) → answer (Opus 5.5, search results with citations, `search_corpus` tool, official-site web search) → render |
+| `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + graph, spread across sources) → answer (Sonnet 5.5 by default, `llm.ANSWER_MODEL`; search results with citations, `search_corpus` tool, official-site web search) → render |
 | `engine/server.py` | HTTP: `POST /indiafacts/ask`, `GET /indiafacts/health`; `X-Engine-Key`; daily dollar cap `IF_DAILY_USD` |
 | `evals/` | `questions.json` (mirrored pairs, fact, loaded and opinion questions, false premises, web-only; `expect` = the kind), `run.py` (system vs plain Opus+web baseline; code scores + a Sonnet 5.5 support judge, not the run-time checker) |
 | `deploy/` | Dockerfile, `up.sh` (container `indiafacts-engine` on network `das`, 127.0.0.1:8091) |

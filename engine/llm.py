@@ -13,7 +13,9 @@ import anthropic
 KEY_FILE = os.environ.get("IF_ANTHROPIC_KEY_FILE", "")
 LEDGER = Path(__file__).resolve().parent.parent / "runs" / "spend.jsonl"
 
-ANSWER_MODEL = "claude-opus-5-5"
+# Sonnet, not Opus: on the evals its cited sentences were as well supported (0.87 vs 0.82) at a third of the
+# cost an answer (~$0.04 vs ~$0.12; measured 2026-10-17). Opus stays one setting away.
+ANSWER_MODEL = "claude-sonnet-5-5"
 WORKER_MODEL = "claude-haiku-5-5"  # planning and bulk topic tagging
 
 # $ per million tokens: input, output, cache read, cache write (5 min)
