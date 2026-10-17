@@ -32,7 +32,8 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 | `engine/corpus.py` | fetch OCR text (archive.org `/stream/`; the data nodes reset TLS from this box), clean, cut into ~1,200-char passages of 1-2-sentence blocks, locators (article, section, para, sitting date) |
 | `engine/store.py` | Postgres schema `indiafacts` in the site DB: sources, passages (FTS), topics, passage_topics, topic_edges |
 | `engine/graph.py` | topic tagging (Haiku 5.5, Batch API, 6 passages per request, Wikipedia titles as names) and co-occurrence edges |
-| `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + graph, spread across sources) → answer (Sonnet 5.5 by default, `llm.ANSWER_MODEL`; search results with citations, `search_corpus` tool, official-site web search) → render |
+| `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + meaning + graph; 16 max, 3 per source) → answer (Sonnet 5.5 by default, `llm.ANSWER_MODEL`; search results with citations, `search_corpus` tool, official-site web search) → render → widen web quotes (`pages.py`) → per-sentence check (Haiku) |
+| `engine/pages.py` | web search quotes only ~150 chars: refetch the page (direct, else the API's web_fetch), keep ~900 chars around the quote; 10 s deadline, late cost still logged as `answer` |
 | `engine/server.py` | HTTP: `POST /indiafacts/ask`, `GET /indiafacts/health`; `X-Engine-Key`; daily dollar cap `IF_DAILY_USD` |
 | `evals/` | `questions.json` (mirrored pairs, fact, loaded and opinion questions, false premises, web-only; `expect` = the kind), `run.py` (system vs plain Opus+web baseline; code scores + a Sonnet 5.5 support judge, not the run-time checker) |
 | `deploy/` | Dockerfile, `up.sh` (container `indiafacts-engine` on network `das`, 127.0.0.1:8091) |
@@ -58,10 +59,13 @@ Settings come from the environment or a gitignored `.env` (IF_DB_*, IF_ANTHROPIC
   the source's own numbering where it has one, and a search-inside link that opens the scan at the quote.
 - OCR slips show in quotes; the model is told not to correct sources silently.
 - Corpus ends where its books end: later events and court rulings come only from the restricted web search.
-- **Most .gov.in sites time out from servers outside India** (checked 2026-10-17: sci.gov.in, egazette,
-  legislative.gov.in, sansad.in, pib.gov.in, ncrb and more). New documents come from their archive.org
+- **Most .gov.in sites time out from data-centre servers, even in India** (checked 2026-10-17: sci.gov.in
+  judgment PDFs, egazette, upload.indiacode, legislative.gov.in, sansad.in, ncrb). The API's web_fetch reaches some. New documents come from their archive.org
   mirrors (DLI, Public Resource, `rsdebate.nic.in.*`, `eparlib.nic.in.*` items) or a connection in India.
   Answer-time web search runs on Anthropic's side and is unaffected.
 - **Passage ids change when a source is rebuilt**: re-run `embed export` (it sends only new or changed text).
 - **Rights check before adding Parliament debates after 1966**: not over 60 years, and not plainly covered
   by s.52(1)(q). Commission reports laid before Parliament are.
+- Bonds and Kesavananda answers stay weakly supported (0.2-0.4): their citations point to sci.gov.in judis PDFs no
+  fetcher reaches. Fix later: add landmark judgments to the corpus (s.52(1)(q)), downloaded from the laptop.
+
