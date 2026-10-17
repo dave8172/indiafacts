@@ -13,6 +13,7 @@ from anyone's questions: the graph comes from the corpus alone.
   python -m engine graph --submit       one batch per 10,000 untagged passages (ids kept in runs/batches.json)
   python -m engine graph --collect      fetch finished batches, store tags
   python -m engine graph --link         rebuild counts and edges from the stored tags (free)
+  python -m engine graph --prune        remove stored tags naming a year after their source (free)
 """
 import json
 import re
@@ -22,7 +23,7 @@ from pathlib import Path
 from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
 from anthropic.types.messages.batch_create_params import Request
 
-from . import llm, store
+from . import corpus, llm, store
 
 GROUP = 6
 BATCH_MAX = 10_000 // GROUP  # requests per batch
@@ -74,7 +75,7 @@ def _params(group):
 
 def _untagged(limit=None):
     with store.connect() as c:
-        return c.execute("""select p.id, p.text, s.title, s.year from indiafacts.passages p
+        return c.execute("""select p.id, p.text, s.slug, s.title, s.year from indiafacts.passages p
                             join indiafacts.sources s on s.slug = p.source
                             where not exists (select 1 from indiafacts.passage_topics t where t.passage = p.id)
                               and p.id not in (select unnest(%s::int[]))
@@ -102,6 +103,17 @@ def _norm(name):
     return name[:1].upper() + name[1:] if name else name
 
 
+# The last year each source covers: a topic named with a later year ("2002 Gujarat riots" on a 1936 memoir) is
+# kept only if the passage itself has that year (an amended Act citing a later Act). The prompt asks the same;
+# this catches the misses.
+LAST_YEAR = {x["slug"]: x.get("to", x["year"]) for x in corpus.sources()}
+
+
+def _too_late(name, p):
+    last = LAST_YEAR.get(p["slug"])
+    return bool(last) and any(int(y) > last + 1 and y not in p["text"] for y in re.findall(r"1[6-9]\d\d|20\d\d", name))
+
+
 def _store_tags(group, parsed):
     """Write tags for one group; returns the passage ids that got no topics."""
     by_n = {p["n"]: p["topics"] for p in parsed.get("passages", [])}
@@ -113,7 +125,7 @@ def _store_tags(group, parsed):
                 empty.append(p["id"])
             for t in topics[:4]:
                 name = _norm(t["name"])
-                if not name or len(name) > 120:
+                if not name or len(name) > 120 or _too_late(name, p):
                     continue
                 tid = c.execute("""insert into indiafacts.topics (name, kind) values (%s, %s)
                                    on conflict (name) do update set name = excluded.name returning id""",
@@ -162,7 +174,7 @@ def collect():
     cl = llm.client()
     state = _state()
     with store.connect() as c:
-        meta = {r["id"]: r for r in c.execute("""select p.id, p.text, s.title, s.year from indiafacts.passages p
+        meta = {r["id"]: r for r in c.execute("""select p.id, p.text, s.slug, s.title, s.year from indiafacts.passages p
                                                  join indiafacts.sources s on s.slug = p.source""").fetchall()}
     for b in state["batches"]:
         if b.get("collected"):
@@ -213,6 +225,19 @@ def link():
     print(store.stats())
 
 
+def prune():
+    """Remove stored tags that fail _too_late (tags from before the rule, or after a source's `to` changes)."""
+    with store.connect() as c, c.transaction():
+        rows = c.execute("""select pt.passage, pt.topic, t.name, p.text, s.slug from indiafacts.passage_topics pt
+                            join indiafacts.topics t on t.id = pt.topic join indiafacts.passages p on p.id = pt.passage
+                            join indiafacts.sources s on s.slug = p.source
+                            where t.name ~ '(1[6-9][0-9][0-9]|20[0-9][0-9])'""").fetchall()
+        bad = [(r["passage"], r["topic"]) for r in rows if _too_late(r["name"], r)]
+        for pair in bad:
+            c.execute("delete from indiafacts.passage_topics where passage = %s and topic = %s", pair)
+    print(f"removed {len(bad)} tags naming a year after their source; run --link next")
+
+
 def main(args):
     if args[:1] == ["--pilot"]:
         pilot(int(args[1]) if len(args) > 1 else 30)
@@ -222,5 +247,7 @@ def main(args):
         collect()
     elif args[:1] == ["--link"]:
         link()
+    elif args[:1] == ["--prune"]:
+        prune()
     else:
         print(__doc__)
