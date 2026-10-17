@@ -209,6 +209,7 @@ def collect():
 def link():
     """Counts per topic and co-occurrence edges, from the stored tags."""
     with store.connect() as c, c.transaction():
+        c.execute("update indiafacts.topics set passages = 0, sources = 0")  # topics left with no passages
         c.execute("""update indiafacts.topics t set passages = x.p, sources = x.s
                      from (select pt.topic, count(*) p, count(distinct p.source) s
                            from indiafacts.passage_topics pt join indiafacts.passages p on p.id = pt.passage
