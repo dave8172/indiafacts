@@ -203,7 +203,8 @@ def main(args):
     if cmd == "export":
         export()
     elif cmd == "run":
-        run(args[1], provider=opt("--provider", "dml"), variant=opt("--variant", "model"), batch=int(opt("--batch", 16)))
+        run(args[1], provider=opt("--provider", "dml"), variant=opt("--variant", "model"), batch=int(opt("--batch", 16)),
+            out=opt("--out", None))
     elif cmd == "merge":
         merge(args[1])
     elif cmd == "check":
