@@ -19,6 +19,7 @@ WORKER_MODEL = "claude-haiku-5-5"  # planning and bulk topic tagging
 # $ per million tokens: input, output, cache read, cache write (5 min)
 PRICES = {
     "claude-opus-5-5": (4.00, 20.00, 0.20, 5.00),
+    "claude-sonnet-5-5": (2.00, 10.00, 0.20, 2.50),
     "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125),
 }
 WEB_SEARCH = 10.00 / 1000  # per search

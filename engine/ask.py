@@ -262,7 +262,9 @@ SEARCH_TOOL = {
 }
 
 
-def answer(question):
+def answer(question, model=None):
+    """model: the writer (default llm.ANSWER_MODEL); the evals compare writers."""
+    model = model or llm.ANSWER_MODEL
     t0 = time.time()
     cl = llm.client()
     p, plan_cost = plan(cl, question)
@@ -285,17 +287,19 @@ def answer(question):
         brief.append("This likely needs court rulings or recent official records: use web_search.")
     content = [as_search_result(r) for r in picked] + [{"type": "text", "text": "\n".join(brief)}]
     messages = [{"role": "user", "content": content}]
-    tools = [SEARCH_TOOL, {"type": "web_search_20260209", "name": "web_search", "max_uses": WEB_USES,
+    # web_search_20250305, not _20260209: the newer one filters results through code and returns no citations
+    # (measured 2026-10-17), and every sentence here must carry a checkable quote.
+    tools = [SEARCH_TOOL, {"type": "web_search_20250305", "name": "web_search", "max_uses": WEB_USES,
                            "allowed_domains": WEB_DOMAINS}]
     total = plan_cost
     final = None
     for _ in range(MAX_TURNS):
         msg = cl.beta.messages.create(
-            model=llm.ANSWER_MODEL, max_tokens=8000, system=ANSWER_SYSTEM, tools=tools, messages=messages,
+            model=model, max_tokens=8000, system=ANSWER_SYSTEM, tools=tools, messages=messages,
             thinking={"type": "adaptive"}, output_config={"effort": "medium"},
             betas=["server-side-fallback-2026-07-01"],
             extra_body={"fallbacks": "default", "cache_control": {"type": "ephemeral"}})
-        total += llm.cost(msg.model if msg.model in llm.PRICES else llm.ANSWER_MODEL, msg.usage)
+        total += llm.cost(msg.model if msg.model in llm.PRICES else model, msg.usage)
         messages.append({"role": "assistant", "content": [b.model_dump(exclude_none=True) for b in msg.content]})
         final = msg
         if msg.stop_reason == "pause_turn":

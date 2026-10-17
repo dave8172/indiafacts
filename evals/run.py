@@ -5,6 +5,7 @@
 Arms:
 - system:   engine.ask.answer (corpus + graph + official-site web search, citations on).
 - baseline: Opus 5.5 with the same answer rules and open web search, no corpus: what a sharp prompt alone gets.
+- sonnet:   the system with Sonnet 5.5 writing the answer instead of Opus 5.5 (half the price per token).
 
 Scores, all by code except `support` (Haiku 5.5 reads each cited sentence beside its quotes):
 - words, sources cited, kinds of evidence, unsourced sentences, judging words (a fixed list);
@@ -25,7 +26,6 @@ from engine import ask, llm
 
 # Not the model that checks citations at run time (Haiku), so the eval doesn't grade the checker with itself.
 JUDGE_MODEL = "claude-sonnet-5-5"
-llm.PRICES.setdefault(JUDGE_MODEL, (2.00, 10.00, 0.20, 2.50))
 
 HERE = Path(__file__).resolve().parent
 JUDGING = ["brutal", "heroic", "infamous", "notorious", "draconian", "glorious", "shameful", "controversial",
@@ -43,7 +43,7 @@ def baseline(question):
         msg = cl.beta.messages.create(
             model=llm.ANSWER_MODEL, max_tokens=8000, system=ask.ANSWER_SYSTEM.split("\n\nTools:")[0]
             + "\n\nTool: web_search, on the open web. Prefer primary records (laws, rulings, official reports).",
-            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}], messages=messages,
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}], messages=messages,
             thinking={"type": "adaptive"}, output_config={"effort": "medium"},
             betas=["server-side-fallback-2026-07-01"], extra_body={"fallbacks": "default"})
         total += llm.cost(llm.ANSWER_MODEL, msg.usage)
@@ -71,15 +71,19 @@ JUDGE_SCHEMA = {
 def judge(question, out):
     """Haiku 5.5: does each cited sentence follow from its quotes; does the answer open by rejecting a premise."""
     quotes = {s["n"]: s["quote"][:900] for s in out["sources"]}
-    items = [(i, s) for i, s in enumerate(out["segments"]) if s["cites"]]
-    body = "\n\n".join(f"<claim i=\"{i}\">{s['text'].strip()}</claim>\n" + "\n".join(f"<quote>{quotes[n]}</quote>" for n in s["cites"] if n in quotes)
-                       for i, s in items)
+    sentences = {}
+    for s in out["segments"]:
+        sentences.setdefault(s.get("sent", id(s)), []).append(s)
+    items = [("".join(p["text"] for p in parts).strip(), list(dict.fromkeys(n for p in parts for n in p["cites"])))
+             for parts in sentences.values() if any(p["cites"] for p in parts)]
+    body = "\n\n".join(f"<claim i=\"{i}\">{text}</claim>\n" + "\n".join(f"<quote>{quotes[n]}</quote>" for n in cites if n in quotes)
+                       for i, (text, cites) in enumerate(items))
     first = next((s["text"].strip() for s in out["segments"] if s["text"].strip()), "")
     prompt = (f"Question: {question}\nThe answer's first sentence: {first}\n\n"
               "premise_rejected: true only if that first sentence says the question's assumption is wrong or unsupported.\n"
               "For each claim, support: yes if its quotes state it, partly if they state some of it, no if they don't.\n\n" + body)
     msg = llm.client().messages.create(
-        model=JUDGE_MODEL, max_tokens=4000, thinking={"type": "disabled"},
+        model=JUDGE_MODEL, max_tokens=4000, thinking={"type": "between_tools"},  # Sonnet 5.5: "disabled" is a 400
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": JUDGE_SCHEMA}},
         messages=[{"role": "user", "content": prompt}])
     llm.record("eval-judge", llm.cost(JUDGE_MODEL, msg.usage))
@@ -108,7 +112,8 @@ def score(q, out):
 
 
 def run_arm(arm, qs, cap):
-    fn = ask.answer if arm == "system" else baseline
+    fn = {"system": ask.answer, "baseline": baseline,
+          "sonnet": lambda q: ask.answer(q, model="claude-sonnet-5-5")}[arm]
     rows, spent = [], 0.0
 
     def one(q):
@@ -116,7 +121,12 @@ def run_arm(arm, qs, cap):
             out = fn(q["q"])
         except Exception as e:  # a failed question is a result, not a crash
             out = {"ok": False, "reason": repr(e)[:200], "segments": [], "sources": [], "meta": {"usd": 0}}
-        return {"q": q, "out": out, "score": score(q, out)}
+        try:
+            sc = score(q, out)
+        except Exception as e:  # a failed judge is recorded, not a crash that loses the paid answers
+            sc = score({**q, "premise_false": False}, {"ok": False, "segments": [], "sources": []})
+            sc["judge_error"] = repr(e)[:200]
+        return {"q": q, "out": out, "score": sc}
 
     with ThreadPoolExecutor(3) as pool:
         for r in pool.map(one, qs):
