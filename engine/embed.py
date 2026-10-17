@@ -163,21 +163,37 @@ def check(n=40):
 # --- GPU side --------------------------------------------------------------------------------------------
 
 def run(path, provider="dml", variant="model", batch=16, out=None):
-    """Embed a passages.jsonl from `export`, longest-first batches (less padding), saving progress as it goes."""
+    """Embed a passages.jsonl from `export`, longest-first batches (less padding). Progress is saved to
+    <out>.part every ~2,000 passages; running the same command again resumes from it."""
     rows = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
-    rows.sort(key=lambda r: -len(r["text"]))
+    rows.sort(key=lambda r: (-len(r["text"]), r["id"]))
     out = Path(out or Path(path).with_name("vectors-new.npz"))
+    part = out.with_suffix(".part.npz")
+    vecs, done = [], 0
+    if part.exists():
+        z = np.load(part)
+        if str(z["variant"]) == variant and z["ids"].tolist() == [r["id"] for r in rows[:len(z["ids"])]]:
+            vecs, done = [z["vecs"]], len(z["ids"])
+            print(f"resuming after {done} passages", flush=True)
     enc = Encoder(variant=variant, provider=provider)
-    print(f"{len(rows)} passages on {enc.session.get_providers()[0]}, variant {variant}", flush=True)
-    vecs, t0 = [], time.time()
-    for k in range(0, len(rows), batch):
-        vecs.append(enc.encode([r["text"] for r in rows[k:k + batch]]).astype(np.float16))
-        done = min(k + batch, len(rows))
-        if done % (batch * 50) == 0 or done == len(rows):
-            rate = done / (time.time() - t0)
+    print(f"{len(rows)} passages on {enc.session.get_providers()[0]}, variant {variant}, batch {batch}", flush=True)
+    t0, start = time.time(), done
+
+    def save(target, n):
+        np.savez(target, ids=np.array([r["id"] for r in rows[:n]], dtype=np.int64),
+                 hashes=np.array([r["h"] for r in rows[:n]]), vecs=np.vstack(vecs), variant=np.array(variant))
+
+    while done < len(rows):
+        chunk = rows[done:done + batch]
+        vecs.append(enc.encode([r["text"] for r in chunk]).astype(np.float16))
+        done += len(chunk)
+        if (done // batch) % 125 == 0 or done == len(rows):
+            rate = (done - start) / (time.time() - t0)
             print(f"  {done}/{len(rows)}  {rate:.1f}/s  ~{(len(rows) - done) / rate / 60:.0f} min left", flush=True)
-    np.savez(out, ids=np.array([r["id"] for r in rows], dtype=np.int64), hashes=np.array([r["h"] for r in rows]),
-             vecs=np.vstack(vecs), variant=np.array(variant))
+            save(part, done)
+            vecs = [np.vstack(vecs)]
+    save(out, done)
+    part.unlink(missing_ok=True)
     print(f"-> {out} ({out.stat().st_size / 1e6:.1f} MB) in {(time.time() - t0) / 60:.1f} min")
 
 
