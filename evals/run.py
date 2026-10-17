@@ -181,7 +181,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="")
     ap.add_argument("--arms", default="system,baseline")
-    ap.add_argument("--cap", type=float, default=10.0, help="stop an arm past this many dollars")
+    ap.add_argument("--cap", default="10", help="stop an arm past this many dollars: one number, or arm=usd,arm=usd")
     a = ap.parse_args()
     qs = json.loads((HERE / "questions.json").read_text())["questions"]
     if a.only:
@@ -192,7 +192,8 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     arms = {}
     for arm in a.arms.split(","):
-        rows = run_arm(arm, qs, a.cap)
+        caps = dict(x.split("=") for x in a.cap.split(",")) if "=" in a.cap else {}
+        rows = run_arm(arm, qs, float(caps.get(arm, a.cap if not caps else 10)))
         (out_dir / f"{arm}.jsonl").write_text("".join(json.dumps(r, default=str) + "\n" for r in rows))
         arms[arm] = rows
     (out_dir / "report.md").write_text(report(stamp, arms))
