@@ -92,6 +92,8 @@ Then fill in:
 - web: true if it needs court rulings, Constitution amendments after 2021, laws after 2023, any law not in
   the corpus below (the corpus holds only the laws listed there), events the corpus can't cover, or current
   figures.
+- legal: true if it asks what the law allows, forbids, requires or punishes (whether an act is legal, needs
+  permission, or can be prosecuted or sued over); else false.
 - depth: brief if one short fact answers it: what one named provision says, a date, the penalty for a named
   offence. full if a good answer brings together several findings or accounts: what a commission, report,
   committee, debate or book recorded, found or recommended; how an event came about; what each side said or
@@ -113,8 +115,9 @@ PLAN_SCHEMA = {
         "topics": {"type": "array", "items": {"type": "string"}},
         "web": {"type": "boolean"},
         "depth": {"type": "string", "enum": ["brief", "full"]},
+        "legal": {"type": "boolean"},
     },
-    "required": ["kind", "factual", "suggest", "premises", "act", "searches", "topics", "web", "depth"],
+    "required": ["kind", "factual", "suggest", "premises", "act", "searches", "topics", "web", "depth", "legal"],
     "additionalProperties": False,
 }
 
@@ -325,7 +328,10 @@ def answer(question, model=None):
         brief.append("Premises it assumes (check, don't assume): " + "; ".join(p["premises"]))
     if p["act"]:
         brief.append(f"Treat it as a question about this act, not the person: {p['act']}")
-    if p["web"]:
+    if p.get("legal"):  # the corpus holds the criminal codes only: other Acts and every ruling are on the web
+        brief.append("A question about what the law allows or forbids: before writing, run web_search for other Acts "
+                     "that cover this act and for court rulings on it.")
+    elif p["web"]:
         brief.append("This likely needs court rulings or recent official records: use web_search.")
     brief.append(f"Length: {'full' if full else 'brief'}.")
     content = [as_search_result(r) for r in picked] + [{"type": "text", "text": "\n".join(brief)}]
