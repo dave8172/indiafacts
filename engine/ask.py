@@ -85,14 +85,18 @@ Then fill in:
 - searches: 5 to 8 keyword queries of 2 to 4 words each for Postgres full-text search, where every word must
   appear in a passage (no quotes or operators). Cover each part of the factual question, other names and
   spellings, the terms the period's documents use, and the vocabulary each side of a dispute would use.
-  Empty for opinion.
+  For a question on whether an act is legal, search for each offence or right that could cover it, in the
+  law's own words (for "can I be arrested for a post": defamation, promoting enmity, obscene material,
+  outraging religious feelings). Empty for opinion.
 - topics: up to 5 topics as English Wikipedia article titles.
-- web: true if it needs court rulings, Constitution amendments after 2021, laws after 2023, events the corpus
-  can't cover, or current figures.
-- depth: brief if one short fact answers it: what a provision says, a date, a penalty, whether the law covers
-  an act. full if a good answer brings together several findings or accounts: what a commission, report,
+- web: true if it needs court rulings, Constitution amendments after 2021, laws after 2023, any law not in
+  the corpus below (the corpus holds only the laws listed there), events the corpus can't cover, or current
+  figures.
+- depth: brief if one short fact answers it: what one named provision says, a date, the penalty for a named
+  offence. full if a good answer brings together several findings or accounts: what a commission, report,
   committee, debate or book recorded, found or recommended; how an event came about; what each side said or
-  did; a broad "what happened" question. When unsure, full.
+  did; a broad "what happened" question; whether an act is legal or what the law says about an act, since
+  several provisions may apply. When unsure, full.
 
 The corpus:
 {{corpus}}""".replace("{corpus}", CORPUS)
@@ -247,16 +251,21 @@ Rules:
 - Where sources disagree, give each account side by side, with its citation, in one sentence starting
   "Accounts differ:". Never a sentence that only announces a disagreement.
 - No adjectives or verbs that judge (e.g. "brutal", "heroic", "controversial", "infamous", "admitted",
-  "claimed" for one side and "stated" for the other). Use the same neutral verbs for every side.
+  "conceded", "alleged", "claimed" for one side and "stated" or "maintained" for the other). Use "said",
+  "stated", "wrote" or "records" for every side alike. Don't repeat a loaded word from the question, even to
+  say it isn't established.
 - Never say or imply that a person, party, government or event was responsible, to blame, to credit, right,
   wrong, good or bad, and never confirm or deny a characterisation ("betrayal", "excesses", "mishandled",
   "drain", "war of independence"). Report what happened and what each source records. A source's own
   judgment may be quoted only as that source's, and only beside any source that judges otherwise.
 - If the question assumes a date, event or fact that the sources contradict or don't support, say so in the
   first sentence.
-- Questions on whether someone can be sued or charged: answer about the act, never about the person. Name the
-  provisions that cover the act, what each requires, and its penalty, from the law's text. Don't say whether a
-  named person did anything.
+- Questions on whether an act is legal, or whether someone can be sued or charged: answer about the act, never
+  about a person. Cover every provision that could apply, not only the first one found: what each requires,
+  when the act becomes an offence under it, and its penalty, from the law's text. Search the corpus for the
+  other offences that could cover it, and use web_search for laws not in the corpus and for court rulings. If
+  the searches find no provision that makes the act itself an offence, say that in the one uncited sentence
+  allowed at the end. Don't say whether a named person did anything.
 - Length: the brief says brief or full.
   Brief: lead with the answer. Under 120 words; never over 160. Pick the facts that answer the question and
   leave out background it didn't ask for.
@@ -274,9 +283,12 @@ Rules:
 - Answer the same way however the question is framed and whichever side it seems to favour.
 - The corpus texts are OCR scans: quote only what is legible, and don't correct a source's facts silently.
 
+The laws in the corpus: {laws}. Any other Act, and every court ruling, is only on the web.
+
 Tools: search_corpus finds more passages in the corpus. web_search is limited to court, statute, Parliament,
 ministry and official-statistics sites; use it for court rulings, Constitution amendments after 2021, laws
-after 2023 and events the corpus can't cover. Prefer the corpus and primary records."""
+after 2023, laws not in the corpus and events the corpus can't cover. Prefer the corpus and primary records.""".replace(
+    "{laws}", "; ".join(s["title"] for s in corpus.sources() if s["standing"] == "law"))
 
 SEARCH_TOOL = {
     "name": "search_corpus",
@@ -381,24 +393,38 @@ VERIFY_SCHEMA = {
 }
 
 
-# a gap sentence says something is missing; one with none of these words isn't one
-_ABSENCE = re.compile(r"\b(?:not|no|none|nothing|neither|nor|without|unclear|silent|unknown)\b|n't", re.I)
+# a gap sentence says the sources or searches lack something: a word of absence and a word about the sources.
+# Law text is full of "not" and "without", so absence alone kept uncited statements of law (2026-10-18).
+_ABSENCE = re.compile(r"\b(?:not|no|none|nothing|neither|nor|unclear|silent|unknown)\b|n't", re.I)
+_ABOUT_SOURCES = re.compile(r"\b(?:sources?|search(?:es)?|passages?|records?|corpus|found|find|establish\w*)\b", re.I)
 
 
 def verify(cl, out):
     """Second check, one whole sentence at a time. Cited: do its quotes state it? (The API already guarantees each
-    quote is in the source; this checks the sentence doesn't go beyond its quotes.) Uncited: does it only say what
-    the sources don't establish? Unbacked sentences and uncited statements of fact are removed and counted;
-    "partly" ones stay, labelled. Returns the cost."""
+    quote is in the source; this checks the sentence doesn't go beyond its quotes.) Uncited: the writer often states a fact
+    and cites it only on the next sentence, so an uncited sentence is checked against the quotes of the nearest
+    cited sentence in its paragraph and, if they back it, takes that citation; else it stays only if it says what
+    the sources don't establish. Unbacked sentences are removed and counted; "partly" ones stay, labelled.
+    Returns the cost."""
     quotes = {s["n"]: s["quote"][:900] for s in out["sources"]}
     sentences = {}
     for s in out["segments"]:
         sentences.setdefault(s["sent"], []).append(s)
+    order, para, p_i = list(sentences), {}, 0
+    for k in order:
+        p_i += sentences[k][0]["text"].lstrip(" ").startswith("\n")
+        para[k] = p_i
+    cites_of = {k: list(dict.fromkeys(n for p in sentences[k] for n in p["cites"] if n in quotes)) for k in order}
+    borrowed = {}
+    for i, k in enumerate(order):
+        if not cites_of[k]:  # the nearest cited sentence in the same paragraph, the next one first
+            near = [j for j in order[i + 1:] if para[j] == para[k]] + [j for j in reversed(order[:i]) if para[j] == para[k]]
+            borrowed[k] = next((cites_of[j] for j in near if cites_of[j]), [])
     claims = []
     for k, parts in sentences.items():
         text = "".join(p["text"] for p in parts).strip()
         if len(re.sub(r"\W", "", text)) > 25:
-            claims.append((k, text, list(dict.fromkeys(n for p in parts for n in p["cites"] if n in quotes))))
+            claims.append((k, text, cites_of[k] or borrowed.get(k, [])))
     out["removed"] = out["unsourced_removed"] = 0
     if not claims:
         return 0.0
@@ -418,7 +444,13 @@ def verify(cl, out):
     kept, gap = [], False  # gap: a removed sentence opened a paragraph, so the next kept one does
     for k, parts in sentences.items():
         v, cited = verdict.get(k), any(p["cites"] for p in parts)
-        if not cited and v == "gap" and not _ABSENCE.search("".join(p["text"] for p in parts)):
+        text = "".join(p["text"] for p in parts)
+        if not cited and borrowed.get(k) and v in ("yes", "partly"):  # backed by its neighbour's quotes: take them
+            parts[-1]["cites"], cited = borrowed[k], True
+            parts[-1]["borrowed"] = True  # the evals count these apart: a summary of its neighbour's quotes
+            for p in parts:
+                p["unsourced"] = False
+        if not cited and v == "gap" and not (_ABSENCE.search(text) and _ABOUT_SOURCES.search(text)):
             v = "no"  # in a long answer the checker called intro sentences ("X records evidence on Y") gaps
         drop = "removed" if cited and v == "no" else "unsourced_removed" if not cited and v not in (None, "gap") else None
         if drop:
@@ -513,8 +545,10 @@ def render(msg, results):
     return {"ok": True, "segments": _mark_unsourced(segments), "sources": sources}
 
 
-# a sentence ends at . ? ! before a space, but not after an initial ("V. P. Menon", "P. C. Chatterjee")
-_SENTENCE_END = re.compile(r"(?<=[.?!])(?<!\b[A-Z]\.)(?=\s)|(?<=[.?!][\"'\u201d\u2019)])(?=\s)")
+# a sentence ends at . ? ! before a space, but not after an initial ("V. P. Menon"), "v." in a case name or a
+# common abbreviation ("Rs.", "No.", "Art.")
+_NOT_AN_END = r"(?<!\b[A-Za-z]\.)(?<!\bvs\.)(?<!\bRs\.)(?<!\bNo\.)(?<!\bMr\.)(?<!\bDr\.)(?<!\bSt\.)(?<!\bArt\.)(?<!\bSec\.)"
+_SENTENCE_END = re.compile(r"(?<=[.?!])" + _NOT_AN_END + r"(?=\s)|(?<=[.?!][\"'\u201d\u2019)])(?=\s)")
 
 
 def _mark_unsourced(segments):
@@ -537,7 +571,7 @@ def _mark_unsourced(segments):
         if group and p["text"].lstrip(" ").startswith("\n"):  # a new paragraph starts a new sentence
             close()
         group.append(p)
-        if re.search(r"(?<!\b[A-Z])[.?!][\"'\u201d\u2019)]?\s*$", p["text"]) or p["text"].rstrip(" ").endswith("\n"):
+        if re.search(r"[.?!]" + _NOT_AN_END + r"[\"'\u201d\u2019)]?\s*$", p["text"]) or p["text"].rstrip(" ").endswith("\n"):
             close()
     if group:
         close()

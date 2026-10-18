@@ -152,6 +152,11 @@
    "expect": "fact"
   },
   {
+   "id": "record-public",
+   "q": "Is recording someone in public illegal, and does it require permission?",
+   "expect": "fact"
+  },
+  {
    "id": "bns-defamation",
    "q": "Which BNS section covers defamation, and what is the penalty?",
    "expect": "fact"

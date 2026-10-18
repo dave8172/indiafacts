@@ -114,6 +114,7 @@ def score(q, out):
         "kind": out.get("kind"),
         "kind_ok": out.get("kind") == q.get("expect") if out.get("kind") else None,
         "removed": out.get("removed", 0),
+        "borrowed": sum(1 for s in out.get("segments", []) if s.get("borrowed")),  # cited from a neighbour's quotes
         "judge_usd": jcost,
     }
 
