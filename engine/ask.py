@@ -176,7 +176,7 @@ def related(topic_ids, limit=6):
                group by t.name order by w desc limit %s""", (topic_ids, topic_ids, topic_ids, topic_ids, limit)).fetchall()]
 
 
-def meaning_passages(question, k=12):
+def meaning_passages(question, k=40):  # 12 let one big source fill them all; 40 gave the writer 1 more target of 40 (evals/recall)
     """Passages close in meaning to the question (engine/embed.py), scored against the best of them (0..1)."""
     from . import embed
     if not question:

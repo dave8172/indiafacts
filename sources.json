@@ -259,17 +259,6 @@
       "note": "British parliamentary commission on India's constitution; no Indian members."
     },
     {
-      "slug": "mandal",
-      "ia": "dli.csl.672",
-      "title": "Report of the Backward Classes Commission, 1980 (Mandal Commission)",
-      "author": "Backward Classes Commission (B. P. Mandal)",
-      "year": 1980,
-      "standing": "official-report",
-      "locator": "para",
-      "rights": "commission report laid before Parliament, s.52(1)(q)",
-      "note": "Submitted 31 December 1980; text from a 1993 reprint."
-    },
-    {
       "slug": "famine-1880",
       "ia": "FamineCommission",
       "title": "Report of the Indian Famine Commission (1880)",
@@ -504,13 +493,13 @@
     {
       "slug": "sarkaria",
       "ia": "275-pages-vol-1-preliminary-report-of-sarkaria-commission",
-      "title": "Report of the Commission on Centre-State Relations (Sarkaria Commission, 1988)",
-      "author": "Commission on Centre-State Relations (R. S. Sarkaria)",
-      "year": 1988,
+      "title": "Sarkaria Commission of Inquiry (allegations against the former Chief Minister and other Ministers of Tamil Nadu), Final Report",
+      "author": "Commission of Inquiry (R. S. Sarkaria)",
+      "year": 1977,
       "standing": "official-report",
       "locator": "para",
-      "rights": "commission report laid before Parliament, s.52(1)(q)",
-      "note": "Includes its chapters on governors, Article 356 and emergency provisions."
+      "rights": "commission of inquiry report laid before Parliament, s.52(1)(q)",
+      "note": "Appointed on 3 February 1976 (S.O. 74(E)) under the Commissions of Inquiry Act, 1952, to inquire into allegations against M. Karunanidhi and other ministers of Tamil Nadu. The scan holds Volume 2 onward (allegations 14 and 17 and later) with the Commission's orders; evidence in it is dated up to September 1977, and it gives no submission date. Not the 1988 Sarkaria Commission on Centre-State Relations: the archive.org upload is titled as that report, and was listed as it here until 2026-10-18."
     },
     {
       "slug": "sachar",
