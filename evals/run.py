@@ -1,6 +1,6 @@
 """indiafacts evals: the system against a strong plain baseline, on mirrored pairs and fact questions.
 
-  .venv/bin/python -m evals.run [--only id,id] [--arms system,baseline] [--cap 10]
+  .venv/bin/python -m evals.run [--only id,id] [--arms system,baseline] [--cap 10] [--workers 3]
 
 Arms:
 - system:   engine.ask.answer (corpus + graph + official-site web search, citations on).
@@ -119,7 +119,7 @@ def score(q, out):
     }
 
 
-def run_arm(arm, qs, cap):
+def run_arm(arm, qs, cap, workers=3):
     fn = {"system": ask.answer, "baseline": baseline,
           "opus": lambda q: ask.answer(q, model="claude-opus-5-5")}[arm]
     rows, spent = [], 0.0
@@ -136,7 +136,7 @@ def run_arm(arm, qs, cap):
             sc["judge_error"] = repr(e)[:200]
         return {"q": q, "out": out, "score": sc}
 
-    with ThreadPoolExecutor(3) as pool:
+    with ThreadPoolExecutor(workers) as pool:
         for r in pool.map(one, qs):
             spent += r["out"]["meta"].get("usd", 0) + r["score"]["judge_usd"]
             rows.append(r)
@@ -189,6 +189,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="")
     ap.add_argument("--arms", default="system,baseline")
+    ap.add_argument("--workers", type=int, default=3, help="answers at once; 1 on a small box (3 ran it out of memory, 2026-10-18)")
     ap.add_argument("--cap", default="10", help="stop an arm past this many dollars: one number, or arm=usd,arm=usd")
     a = ap.parse_args()
     qs = json.loads((HERE / "questions.json").read_text())["questions"]
@@ -201,7 +202,7 @@ def main():
     arms = {}
     for arm in a.arms.split(","):
         caps = dict(x.split("=") for x in a.cap.split(",")) if "=" in a.cap else {}
-        rows = run_arm(arm, qs, float(caps.get(arm, a.cap if not caps else 10)))
+        rows = run_arm(arm, qs, float(caps.get(arm, a.cap if not caps else 10)), a.workers)
         (out_dir / f"{arm}.jsonl").write_text("".join(json.dumps(r, default=str) + "\n" for r in rows))
         arms[arm] = rows
     (out_dir / "report.md").write_text(report(stamp, arms))
