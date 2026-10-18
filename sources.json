@@ -99,7 +99,7 @@
       "file": "bns",
       "parts": [
         [
-          "^THE INDIAN PENAL CODE\\s*$",
+          "^ACT No\\. 45 OF 1860",
           "^Bharatiya Nyaya Sanhita, 2023 \\(BNS\\) &"
         ]
       ],
@@ -117,7 +117,7 @@
       "file": "bnss",
       "parts": [
         [
-          "^THE CODE OF CRIMINAL PROCEDURE, 1973\\s*$",
+          "^ACT NO\\. 2 OF 1974",
           "^The Bharatiya Nagarik Suraksha Sanhita, 2023 \\(BNSS\\)\\s*$"
         ]
       ],
@@ -135,7 +135,7 @@
       "file": "bsa",
       "parts": [
         [
-          "^THE INDIAN EVIDENCE ACT, 1872\\s*$",
+          "^ACT No\\. 1 OF 1872",
           "^Bharatiya Sakshya Adhiniyam, 2023 \\(BSA\\)\\s*$"
         ]
       ],
@@ -500,6 +500,51 @@
       "locator": "para",
       "rights": "commission of inquiry report laid before Parliament, s.52(1)(q)",
       "note": "Appointed on 3 February 1976 (S.O. 74(E)) under the Commissions of Inquiry Act, 1952, to inquire into allegations against M. Karunanidhi and other ministers of Tamil Nadu. The scan holds Volume 2 onward (allegations 14 and 17 and later) with the Commission's orders; evidence in it is dated up to September 1977, and it gives no submission date. Not the 1988 Sarkaria Commission on Centre-State Relations: the archive.org upload is titled as that report, and was listed as it here until 2026-10-18."
+    },
+    {
+      "slug": "mandal",
+      "ia": "PARI.report-of-the-backward-classes-commission-volumes-i-and-ii",
+      "title": "Report of the Backward Classes Commission (Mandal Commission), Volumes I and II",
+      "author": "Backward Classes Commission (B. P. Mandal)",
+      "year": 1980,
+      "standing": "official-report",
+      "locator": "para",
+      "rights": "commission report laid before Parliament, s.52(1)(q)",
+      "note": "Appointed on 20 December 1978; submitted on 31 December 1980. Volumes I and II hold the findings and recommendations. Scan from the People's Archive of Rural India library."
+    },
+    {
+      "slug": "mandal-2",
+      "ia": "PARI.report-of-the-backward-classes-commission-volumes-iii-to-vii",
+      "title": "Report of the Backward Classes Commission (Mandal Commission), Volumes III to VI",
+      "author": "Backward Classes Commission (B. P. Mandal)",
+      "year": 1980,
+      "standing": "official-report",
+      "locator": "para",
+      "rights": "commission report laid before Parliament, s.52(1)(q)",
+      "note": "Volume III: court rulings and debates on Articles 15(4) and 16(4); IV: a study by the Tata Institute of Social Sciences of reactions to reservations in four states; V: survey tables; VI: lists of backward classes by state. Volume VII, a member's dissent, is its own source. Scan from the People's Archive of Rural India library.",
+      "parts": [
+        [
+          "^",
+          "^MINUTE OF DISSENT"
+        ]
+      ]
+    },
+    {
+      "slug": "mandal-dissent",
+      "ia": "PARI.report-of-the-backward-classes-commission-volumes-iii-to-vii",
+      "file": "mandal-2",
+      "parts": [
+        [
+          "^MINUTE OF DISSENT",
+          null
+        ]
+      ],
+      "title": "Minute of Dissent to the Report of the Backward Classes Commission (Volume VII)",
+      "author": "L. R. Naik, member of the Backward Classes Commission",
+      "year": 1980,
+      "standing": "official-report",
+      "rights": "part of a commission report laid before Parliament, s.52(1)(q)",
+      "note": "One member's dissent on how the backward classes should be grouped, with his lists of the depressed backward classes. It is his view, not the Commission's."
     },
     {
       "slug": "sachar",

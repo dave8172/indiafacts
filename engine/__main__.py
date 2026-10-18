@@ -38,6 +38,7 @@ def main(argv):
             store.load_source(s, rows, len(text))
             located = sum(1 for r in rows if r["locator"])
             print(f"{s['slug']:24} {len(rows):>6} passages, {located:>6} located")
+        store.refresh_vocab()
     elif cmd == "search":
         for r in store.search(" ".join(args), limit=10):
             print(f"[{r['rank']:.3f}] {r['source']} {r['locator'] or ''}\n    {r['text'][:220]}\n")

@@ -26,6 +26,7 @@ PER_SOURCE = 3
 # A full answer (what a report found, how an event came about) needs more of each main source: 24 passages, 6 a source
 FULL_PASSAGES = 24
 FULL_PER_SOURCE = 6
+OVER_LIMIT = 0.55  # gave the writer the Hunter report's death count, cut before for weaker passages (evals/recall 40/43 vs 39, 2026-10-18)
 MIN_SCORE = 0.3  # a hit must rank at least this share of its query's best
 MEANING_FLOOR = 0.85  # a meaning hit must reach this share of the best one's cosine
 MAX_TURNS = 4
@@ -231,15 +232,16 @@ def retrieve(p, full=False):
 
 
 def diversify(rows, n=MAX_PASSAGES, per_source=PER_SOURCE):
-    """Best first, at most `per_source` passages from any one source, so no single book fills the answer."""
-    picked, used = [], {}
-    for r in rows:
-        if used.get(r["source"], 0) < per_source:
-            used[r["source"]] = used.get(r["source"], 0) + 1
-            picked.append(r)
-            if len(picked) == n:
-                break
-    return picked
+    """Best first, at most `per_source` passages from any one source, so no single book fills the answer. Past its
+    limit a source's passages compete at OVER_LIMIT of their score for each one over, up to twice the limit: they
+    take only the slots weak matches from other sources would fill."""
+    scored, used = [], {}
+    for r in rows:  # best first
+        k = used[r["source"]] = used.get(r["source"], 0) + 1
+        if k <= 2 * per_source:
+            scored.append((r.get("score", r.get("rank", 0)) * OVER_LIMIT ** max(0, k - per_source), r))
+    scored.sort(key=lambda x: -x[0])
+    return [r for _, r in scored[:n]]
 
 
 def _title(r):

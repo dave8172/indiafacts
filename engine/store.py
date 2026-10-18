@@ -4,6 +4,7 @@ Sources, passages (full-text indexed), and the topic graph. Nobody's questions a
 fresh from the question alone, and only its cost is kept (runs/spend.jsonl). Eval runs keep their traces in
 evals/runs/, on disk.
 """
+import difflib
 import os
 import re
 
@@ -46,6 +47,7 @@ create table if not exists indiafacts.topic_edges (
   b int not null references indiafacts.topics(id) on delete cascade,
   passages int not null, sources int not null, primary key (a, b)
 );
+create table if not exists indiafacts.vocab (word text primary key, n int not null);
 """
 
 
@@ -60,8 +62,14 @@ def init():
 
 
 def load_source(src, rows, chars):
-    """Replace one source's passages (its topic links go with them)."""
+    """Replace one source's passages. A passage whose text is unchanged keeps its topics; the rest are tagged again
+    (engine graph), and every new passage id needs a vector, which `embed export` reuses for unchanged text."""
     with connect() as c, c.transaction():
+        kept = {}
+        for r in c.execute("""select p.text, array_agg(pt.topic) topics from indiafacts.passages p
+                              join indiafacts.passage_topics pt on pt.passage = p.id where p.source = %s
+                              group by p.id""", (src["slug"],)).fetchall():
+            kept[r["text"]] = r["topics"]
         c.execute("""insert into indiafacts.sources (slug, ia, title, author, year, standing, rights, note, chars, passages)
                      values (%(slug)s, %(ia)s, %(title)s, %(author)s, %(year)s, %(standing)s, %(rights)s, %(note)s, %(chars)s, %(n)s)
                      on conflict (slug) do update set ia = excluded.ia, title = excluded.title, author = excluded.author,
@@ -73,6 +81,39 @@ def load_source(src, rows, chars):
         with c.cursor().copy("copy indiafacts.passages (source, seq, locator, text, blocks) from stdin") as cp:
             for r in rows:
                 cp.write_row((src["slug"], r["seq"], r["locator"], r["text"], Jsonb(r["blocks"])))
+        for r in c.execute("select id, text from indiafacts.passages where source = %s", (src["slug"],)).fetchall():
+            for t in kept.get(r["text"], []):
+                c.execute("insert into indiafacts.passage_topics values (%s, %s) on conflict do nothing", (r["id"], t))
+
+
+# Old and OCR spellings of one word: "Jallianwala" is "Jalleanwala" in the Congress report and "Jalianwala" in
+# places in the Hunter report. A long search word also matches the corpus words spelt almost like it.
+VARIANT_MIN, VARIANT_CUTOFF = 7, 0.88
+PER_CENT = re.compile(r"(\d)\s*(?:per\s?cent|percent)\b", re.I)
+
+
+def refresh_vocab():
+    """The corpus's own long words (stemmed, in 2+ passages), for spelling variants. Run after a build."""
+    with connect() as c, c.transaction():
+        c.execute("truncate indiafacts.vocab")
+        c.execute(f"""insert into indiafacts.vocab select word, nentry from ts_stat('select tsv from indiafacts.passages')
+                      where length(word) >= {VARIANT_MIN} and nentry >= 2 and word ~ '^[a-z]+$'""")
+
+
+def with_variants(c, query):
+    """The full-text query for `query`, each long word OR'd with the corpus words spelt almost like it."""
+    query = PER_CENT.sub(r"\1", query)  # "27 per cent" is "27%" in some reports: both index as 27
+    tsq = c.execute("select websearch_to_tsquery('english', %s)::text t", (query,)).fetchone()["t"]
+    words = {w for w in re.findall(r"'([a-z]+)'", tsq) if len(w) >= VARIANT_MIN}
+    if not words:
+        return tsq
+    vocab = [r["word"] for r in c.execute("select word from indiafacts.vocab where left(word, 2) = any(%s)",
+                                          ([w[:2] for w in words],)).fetchall()]
+    for w in words:
+        alt = [v for v in difflib.get_close_matches(w, [v for v in vocab if v[:2] == w[:2]], n=6, cutoff=VARIANT_CUTOFF) if v != w]
+        if alt:
+            tsq = tsq.replace(f"'{w}'", "(" + " | ".join(f"'{x}'" for x in [w] + alt) + ")")
+    return tsq
 
 
 def search(query, limit=24, standing=None, source=None):
@@ -80,10 +121,10 @@ def search(query, limit=24, standing=None, source=None):
     sql = """select p.id, p.source, p.seq, p.locator, p.text, p.blocks, s.title, s.author, s.year, s.standing, s.ia,
                     ts_rank_cd(p.tsv, q, 32) as rank
              from indiafacts.passages p join indiafacts.sources s on s.slug = p.source,
-                  websearch_to_tsquery('english', %(q)s) q
+                  cast(%(q)s as tsquery) q
              where p.tsv @@ q {extra}
              order by rank desc limit %(limit)s"""
-    extra, args = "", {"q": query, "limit": limit}
+    extra, args = "", {"limit": limit}
     if standing:
         extra += " and s.standing = %(standing)s"
         args["standing"] = standing
@@ -91,6 +132,7 @@ def search(query, limit=24, standing=None, source=None):
         extra += " and s.slug = %(source)s"
         args["source"] = source
     with connect() as c:
+        args["q"] = with_variants(c, query)
         return c.execute(sql.format(extra=extra), args).fetchall()
 
 

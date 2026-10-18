@@ -119,11 +119,12 @@ HEADING = re.compile(r"^Section (\d{1,3}[A-Z]?) - [A-Z]")
 SHORT_SECTION = re.compile(r"^\d{2,3}\s?[A-Z]?\.\s+(?:\([^)]{1,3}\)\s*)?Whoever\b")
 
 
-def paragraphs(text, short_sections=False):
+def paragraphs(text, short_sections=False, schedules=False):
     text = unicodedata.normalize("NFKC", text).replace("\x0c", "\n\n").replace("\r", "")
     for raw in re.split(r"\n\s*\n", text):
         p = _clean_paragraph(raw)
-        if _looks_like_text(p) or _is_amendment_note(p) or HEADING.match(p) or short_sections and SHORT_SECTION.match(p):
+        if (_looks_like_text(p) or _is_amendment_note(p) or HEADING.match(p) or short_sections and SHORT_SECTION.match(p)
+                or schedules and SCHEDULE.search(p) and len(p) < 60):
             yield p
 
 
@@ -137,8 +138,10 @@ LOCATORS = {
     # "21. Protection of life and personal liberty.—No person..."
     "article": (re.compile(r"^(\d{1,3}[A-Z]{0,3})\.\s+[A-Z][^.]{3,140}\.\s*[—–-]"),
                 lambda m: f"Article {m.group(1)}"),
-    "section": (re.compile(r"^(\d{1,3}[A-Z]?)\.\s+(?:\(1\)\s+)?[A-Z][^.]{3,140}[.—–-]"),
-                lambda m: f"section {m.group(1)}"),
+    # "302. Punishment for murder.—Whoever ...", "200.—(1) There shall be ..." (1935), "'1124A. Sedition—" (a
+    # footnote mark before the number: it is read as 124A, the shortest number that ends the match), "*[4. ..."
+    "section": (re.compile(r"^(?:\d?[\"'\u2018\u201c*\[^]+\s?(\d)??)?(\d{1,3}[A-Z]{0,2})\.(?:\s+(?:\(1\)\s+)?[A-Z\"'\u201c\u2018][^.]{3,140}[.—–-]|\s*[—–-][\s—–-]*\()"),
+                lambda m: f"section {m.group(2)}"),
     # Gazette print, heading in the margin: "103. (1) Whoever commits murder shall be punished..."
     "gazette-section": (re.compile(r"^(\d{1,3})\.\s+(?:\([0-9IJl/i]\)\s+)?[A-Z]"), lambda m: f"section {m.group(1)}"),
     # a reproduction's own heading line: "Section 66 - Hacking with Computer System"
@@ -149,6 +152,45 @@ LOCATORS = {
     # "16.17 The story related by..."
     "para": (re.compile(r"^(\d{1,2}\.\d{1,3})\.?\s+[A-Z(]"), lambda m: f"para {m.group(1)}"),
 }
+
+
+# An Act's schedules number their own paragraphs from 1: "FIRST SCHEDULE." starts them, and a short line, so it is kept.
+SCHEDULE = re.compile(r"\b(FIRST|SECOND|THIRD|FOURTH|FIFTH|S\.?IXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|"
+                      r"FOURTEENTH|FIFTEENTH)\s+SCHEDULE\b")
+
+
+def _section_key(m):
+    """(number, letters) of a "section" match, for keeping sections in order."""
+    return int(m.group(2)[:len(m.group(2).rstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ"))]), m.group(2).lstrip("0123456789")
+
+
+def _in_order(paras, pattern):
+    """The paragraphs that start a section: the longest run of section numbers that only goes up. A footnote's
+    "10. The words ..." inside section 124 goes back, so it is not section 10; a section whose number OCR misread
+    breaks no run, it is only skipped. Paragraphs after the first schedule heading are not sections."""
+    keys = []
+    for i, p in enumerate(paras):
+        if len(p) < 60 and SCHEDULE.search(p):
+            break
+        m = None if _is_amendment_note(p) else pattern.match(p)
+        if m:
+            keys.append((i, _section_key(m)))
+    tails, back = [], {}  # longest strictly increasing subsequence, by patience sorting
+    for n, (i, k) in enumerate(keys):
+        lo, hi = 0, len(tails)
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if keys[tails[mid]][1] < k:
+                lo = mid + 1
+            else:
+                hi = mid
+        back[n] = tails[lo - 1] if lo else None
+        tails[lo:lo + 1] = [n]
+    out, n = set(), tails[-1] if tails else None
+    while n is not None:
+        out.add(keys[n][0])
+        n = back[n]
+    return out
 
 
 # inside an own section that inserts or substitutes sections: "66E. Whoever ...", "'69. (1) Where ...". OCR reads a
@@ -199,6 +241,8 @@ def passages(src, text):
     locator, cur, cur_loc, seq = None, [], None, 0
     last = 0  # gazette sections run in order, so a stray "4. The ..." inside a later section is not section 4
     inserting, prev = False, None  # amending-act: inside an own section that inserts sections; the last inserted
+    paras = list(paragraphs(text, short_sections=kind == "amending-act", schedules=kind == "section"))
+    starts, schedule = _in_order(paras, pattern) if kind == "section" else None, None
 
     def emit():
         nonlocal cur, seq
@@ -207,12 +251,18 @@ def passages(src, text):
         seq += 1
         return {"seq": seq, "locator": cur_loc, "text": body, "blocks": blocks(body)}
 
-    for p in paragraphs(text, short_sections=kind == "amending-act"):
-        if pattern and not _is_amendment_note(p):  # a note's "1. Subs. by ..." is not section 1
+    for i, p in enumerate(paras):
+        if kind == "section" and len(p) < 60 and (s := SCHEDULE.search(p)):
+            if cur:
+                yield emit()
+            schedule = locator = f"{s.group(1).replace('.', '').title()} Schedule"
+        if pattern and not _is_amendment_note(p) and not schedule:  # a note's "1. Subs. by ..." is not section 1
             m = pattern.search(p) if kind == "sitting" else pattern.match(p)
             if m and kind in ("gazette-section", "amending-act"):
                 n = int(m.group(1))
                 m, last = (m, n) if last < n <= last + 10 else (None, last)
+            elif m and kind == "section" and i not in starts:
+                m = None
             ins = _inserted(p, prev) if kind == "amending-act" and inserting and not m else None
             if m:
                 if cur and kind != "sitting":

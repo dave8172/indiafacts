@@ -88,19 +88,34 @@ def _load():
 
 
 def export():
+    """Write the passages that need a vector. A rebuilt source's passages get new ids: where the text is unchanged,
+    the stored vector is moved to the new id here, so only changed text is embedded again."""
     from . import store
     have = _load()
     known = dict(zip(have["ids"].tolist(), have["hashes"].tolist())) if have else {}
+    by_hash = {h: n for n, h in enumerate(have["hashes"].tolist())} if have else {}
     with store.connect() as c:
         rows = c.execute("""select p.id, p.text, s.title from indiafacts.passages p
                             join indiafacts.sources s on s.slug = p.source order by p.id""").fetchall()
-    out, n = DATA / "passages.jsonl", 0
+    out, n, moved = DATA / "passages.jsonl", 0, []
     with out.open("w") as f:
         for r in rows:
             h = text_hash(r["title"], r["text"])
-            if known.get(r["id"]) != h:
-                f.write(json.dumps({"id": r["id"], "h": h, "text": doc_text(r["title"], r["text"])}, ensure_ascii=False) + "\n")
-                n += 1
+            if known.get(r["id"]) == h:
+                continue
+            if h in by_hash:
+                moved.append((r["id"], h, have["vecs"][by_hash[h]]))
+                continue
+            f.write(json.dumps({"id": r["id"], "h": h, "text": doc_text(r["title"], r["text"])}, ensure_ascii=False) + "\n")
+            n += 1
+    if moved:
+        live = {r["id"] for r in rows}
+        table = {i: (h, v) for i, h, v in zip(have["ids"].tolist(), have["hashes"].tolist(), have["vecs"]) if i in live}
+        table.update({i: (h, v) for i, h, v in moved})
+        ids = sorted(table)
+        np.savez(VECTORS, ids=np.array(ids, dtype=np.int64), hashes=np.array([table[i][0] for i in ids]),
+                 vecs=np.stack([table[i][1] for i in ids]).astype(np.float16))
+        print(f"{len(moved)} vectors of unchanged text moved to their new passage ids")
     print(f"{n} of {len(rows)} passages need vectors -> {out} ({out.stat().st_size / 1e6:.1f} MB)")
 
 
