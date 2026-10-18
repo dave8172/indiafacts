@@ -115,13 +115,15 @@ def _is_amendment_note(p):
 # A reproduction's section heading on its own line: "Section 66 - Hacking with Computer System". Often short,
 # so the text test would drop it, and with it the section number.
 HEADING = re.compile(r"^Section (\d{1,3}[A-Z]?) - [A-Z]")
+# a section that opens on a short line of its own: "66F. (1) Whoever,-"
+SHORT_SECTION = re.compile(r"^\d{2,3}\s?[A-Z]?\.\s+(?:\([^)]{1,3}\)\s*)?Whoever\b")
 
 
-def paragraphs(text):
+def paragraphs(text, short_sections=False):
     text = unicodedata.normalize("NFKC", text).replace("\x0c", "\n\n").replace("\r", "")
     for raw in re.split(r"\n\s*\n", text):
         p = _clean_paragraph(raw)
-        if _looks_like_text(p) or _is_amendment_note(p) or HEADING.match(p):
+        if _looks_like_text(p) or _is_amendment_note(p) or HEADING.match(p) or short_sections and SHORT_SECTION.match(p):
             yield p
 
 
@@ -141,9 +143,34 @@ LOCATORS = {
     "gazette-section": (re.compile(r"^(\d{1,3})\.\s+(?:\([0-9IJl/i]\)\s+)?[A-Z]"), lambda m: f"section {m.group(1)}"),
     # a reproduction's own heading line: "Section 66 - Hacking with Computer System"
     "section-heading": (HEADING, lambda m: f"section {m.group(1)}"),
+    # an amending Act in Gazette print: its own sections as gazette-section, and the sections it inserts into the
+    # principal Act ("66E. Whoever ...") under their own numbers; see _inserted
+    "amending-act": (re.compile(r"^(\d{1,3})\.\s+(?:\([0-9IJl/i]\)\s+)?[A-Z]"), lambda m: f"section {m.group(1)}"),
     # "16.17 The story related by..."
     "para": (re.compile(r"^(\d{1,2}\.\d{1,3})\.?\s+[A-Z(]"), lambda m: f"para {m.group(1)}"),
 }
+
+
+# inside an own section that inserts or substitutes sections: "66E. Whoever ...", "'69. (1) Where ...". OCR reads a
+# trailing D as 0 and B as 8 ("660.", "698."), told apart from a real number by the inserted section before it.
+# A section that opens on a short line ("66F. (1) Whoever,-") is kept, or its number would be lost.
+INSERTS = re.compile(r"following (?:new )?sections? shall be (?:inserted|substituted)", re.I)
+_INSERTED = re.compile(r"^[\"'\u201c\u2018(]*\s*(\d{1,3})\s?([A-Z]?)\.\s+(?:\([0-9IJl/i]\)\s*)?[A-Za-z]")
+
+
+def _inserted(p, prev):
+    """The number of the principal Act's section that p starts, as (base, letter), or None. prev: the last one."""
+    m = _INSERTED.match(p)
+    if not m:
+        return None
+    base, letter = int(m.group(1)), m.group(2)
+    if not letter and prev and base >= 100 and base // 10 == prev[0] and base % 10 in (0, 8):
+        base, letter = base // 10, "?"
+    if prev and base == prev[0] and letter:  # inserted sections run on: 66E, then 66F (OCR: "66P.")
+        letter = chr(ord(prev[1] or "@") + 1)
+    if prev and (base, letter) <= prev or prev and base > prev[0] + 20:
+        return None
+    return base, letter
 
 
 def _sentences(text):
@@ -171,6 +198,7 @@ def passages(src, text):
     pattern, label = LOCATORS.get(kind, (None, None))
     locator, cur, cur_loc, seq = None, [], None, 0
     last = 0  # gazette sections run in order, so a stray "4. The ..." inside a later section is not section 4
+    inserting, prev = False, None  # amending-act: inside an own section that inserts sections; the last inserted
 
     def emit():
         nonlocal cur, seq
@@ -179,16 +207,24 @@ def passages(src, text):
         seq += 1
         return {"seq": seq, "locator": cur_loc, "text": body, "blocks": blocks(body)}
 
-    for p in paragraphs(text):
+    for p in paragraphs(text, short_sections=kind == "amending-act"):
         if pattern and not _is_amendment_note(p):  # a note's "1. Subs. by ..." is not section 1
             m = pattern.search(p) if kind == "sitting" else pattern.match(p)
-            if m and kind == "gazette-section":
+            if m and kind in ("gazette-section", "amending-act"):
                 n = int(m.group(1))
                 m, last = (m, n) if last < n <= last + 10 else (None, last)
+            ins = _inserted(p, prev) if kind == "amending-act" and inserting and not m else None
             if m:
                 if cur and kind != "sitting":
                     yield emit()
                 locator = label(m)
+                if kind == "amending-act":
+                    inserting, prev = bool(INSERTS.search(p)), None
+            elif ins:
+                if cur:
+                    yield emit()
+                prev = ins
+                locator = f"section {ins[0]}{ins[1]} (inserted into the principal Act)"
         if not cur:
             cur_loc = locator
         # long paragraphs are cut at sentence ends

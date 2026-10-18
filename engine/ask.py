@@ -30,6 +30,9 @@ MIN_SCORE = 0.3  # a hit must rank at least this share of its query's best
 MEANING_FLOOR = 0.85  # a meaning hit must reach this share of the best one's cosine
 MAX_TURNS = 4
 WEB_USES = 3
+LEGAL_WEB_USES = 2  # a legal answer searches the web for rulings only: more searches made mirrored pairs drift (2026-10-18)
+# the most words an answer may have; one over is sent back once to be cut
+LIMIT = {"brief": 160, "full": 480}
 
 STANDINGS = corpus.standings()
 SOURCES = {s["slug"]: s for s in corpus.sources()}
@@ -87,7 +90,8 @@ Then fill in:
   spellings, the terms the period's documents use, and the vocabulary each side of a dispute would use.
   For a question on whether an act is legal, search for each offence or right that could cover it, in the
   law's own words (for "can I be arrested for a post": defamation, promoting enmity, obscene material,
-  outraging religious feelings). Empty for opinion.
+  outraging religious feelings), and in the verbs a statute uses for the act itself rather than everyday ones
+  (for "sharing someone's phone number": discloses information, personal data consent). Empty for opinion.
 - topics: up to 5 topics as English Wikipedia article titles.
 - web: true if it needs court rulings, Constitution amendments after 2021, laws after 2023, any law not in
   the corpus below (the corpus holds only the laws listed there), events the corpus can't cover, or current
@@ -266,14 +270,16 @@ Rules:
 - Questions on whether an act is legal, or whether someone can be sued or charged: answer about the act, never
   about a person. Cover every provision that could apply, not only the first one found: what each requires,
   when the act becomes an offence under it, and its penalty, from the law's text. Search the corpus for the
-  other offences that could cover it, and use web_search for laws not in the corpus and for court rulings. If
+  other offences that could cover it, and use web_search for court rulings, and for an Act only when the corpus
+  doesn't hold it. If
   the searches find no provision that makes the act itself an offence, say that in the one uncited sentence
   allowed at the end. Don't say whether a named person did anything.
 - Length: the brief says brief or full.
   Brief: lead with the answer. Under 120 words; never over 160. Pick the facts that answer the question and
   leave out background it didn't ask for.
   Full: an informative account of 250 to 450 words, never over 480, in short paragraphs, organised by source,
-  not by passage. Give each main source its own paragraph, and start the paragraph with a cited sentence of
+  not by passage. Use at most six sources: the ones that answer the question most directly. Give each main
+  source its own paragraph, and start the paragraph with a cited sentence of
   this shape: "<source> (<year>) records that <a fact from it>.", adding what kind of record it is when its name
   doesn't say. For example: "The Shah Commission's Interim Report II (1978) records that Sushil Kumar issued 67
   detention orders on the night of 25-26 June 1975." Every uncited sentence is deleted after you write, so a
@@ -328,9 +334,10 @@ def answer(question, model=None):
         brief.append("Premises it assumes (check, don't assume): " + "; ".join(p["premises"]))
     if p["act"]:
         brief.append(f"Treat it as a question about this act, not the person: {p['act']}")
-    if p.get("legal"):  # the corpus holds the criminal codes only: other Acts and every ruling are on the web
-        brief.append("A question about what the law allows or forbids: before writing, run web_search for other Acts "
-                     "that cover this act and for court rulings on it.")
+    if p.get("legal"):  # the corpus holds the main Acts; court rulings are only on the web
+        brief.append("A question about what the law allows or forbids: search the corpus for every provision that "
+                     "could apply, and before writing, run web_search for court rulings on this act (at most two "
+                     "searches).")
     elif p["web"]:
         brief.append("This likely needs court rulings or recent official records: use web_search.")
     brief.append(f"Length: {'full' if full else 'brief'}.")
@@ -338,16 +345,17 @@ def answer(question, model=None):
     messages = [{"role": "user", "content": content}]
     # web_search_20250305, not _20260209: the newer one filters results through code and returns no citations
     # (measured 2026-10-17), and every sentence here must carry a checkable quote.
-    tools = [SEARCH_TOOL, {"type": "web_search_20250305", "name": "web_search", "max_uses": WEB_USES,
+    tools = [SEARCH_TOOL, {"type": "web_search_20250305", "name": "web_search",
+                           "max_uses": LEGAL_WEB_USES if p.get("legal") else WEB_USES,
                            "allowed_domains": WEB_DOMAINS}]
     total = plan_cost
     final = None
 
-    def turn():
+    def turn(think=True):
         nonlocal total
         msg = cl.beta.messages.create(
             model=model, max_tokens=8000, system=ANSWER_SYSTEM, tools=tools, messages=messages,
-            thinking={"type": "adaptive"}, output_config={"effort": "medium"},
+            thinking={"type": "adaptive" if think else "between_tools"}, output_config={"effort": "medium" if think else "low"},
             betas=["server-side-fallback-2026-07-01"],
             extra_body={"fallbacks": "default", "cache_control": {"type": "ephemeral"}})
         total += llm.cost(msg.model if msg.model in llm.PRICES else model, msg.usage)
@@ -374,6 +382,16 @@ def answer(question, model=None):
                          "answer again in plain sentences. Citations attach by themselves when you state what the "
                          "search results say; there is no cite tool."})
         final = turn()
+    limit = LIMIT["full" if full else "brief"]
+    cut_from = None
+    if final is not None and final.stop_reason == "end_turn" and _words(final) > limit:
+        # the length rule in the prompt is missed on most legal answers (up to 640 words, 2026-10-18): cut once
+        messages.append({"role": "user", "content": f"Your answer has {_words(final)} words; the limit is {limit}. "
+                         "Write it again, shorter, from the same sources: keep the facts that answer the question "
+                         "most directly and drop the rest. Don't search again."})
+        cut = turn(think=False)  # cutting needs no thinking: 45 s instead of 59, about the same cost (2026-10-18)
+        if cut.stop_reason == "end_turn" and not _has_markup(cut):  # a search instead of a rewrite keeps the first
+            final, cut_from = cut, limit
     out = render(final, results)
     if out["ok"]:
         total += pages.widen(cl, out["sources"])
@@ -385,7 +403,7 @@ def answer(question, model=None):
     out["topics"] = [t["name"] for t in topics]
     out["related"] = related([t["id"] for t in topics])
     out["meta"] = {"usd": round(total, 4), "seconds": round(time.time() - t0, 1), "passages": len(results),
-                   "plan": p, "model": final.model if final else None, "stop": final.stop_reason if final else None}
+                   "plan": p, "cut": cut_from, "model": final.model if final else None, "stop": final.stop_reason if final else None}
     llm.record("answer", total)
     return out
 
@@ -507,6 +525,10 @@ _MARKUP = re.compile(r"</?(?:invoke|parameter|function_calls|antml:\w+)\b")
 
 def _has_markup(msg):
     return any(b.type == "text" and _MARKUP.search(b.text) for b in msg.content)
+
+
+def _words(msg):
+    return sum(len(b.text.split()) for b in msg.content if b.type == "text")
 
 
 def render(msg, results):

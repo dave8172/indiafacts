@@ -31,7 +31,7 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 |---|---|
 | `sites.json` | websites for India facts, graded by what they are the original of (A issuer, B faithful copy, C research, D media: never a source); `web: true` ones are the answer's web-search domains; where to refresh what |
 | `sources.json` | every source: archive.org id, standing (kind of evidence), rights basis, locator kind. The page's corpus table is built from it |
-| `engine/corpus.py` | fetch OCR text (archive.org `/stream/`; the data nodes reset TLS from this box), clean, cut into ~1,200-char passages of 1-2-sentence blocks, locators (article, section, para, sitting date) |
+| `engine/corpus.py` | fetch OCR text (archive.org `/stream/`; the data nodes reset TLS from this box), clean, cut into ~1,200-char passages of 1-2-sentence blocks, locators (article, section, para, sitting date; an amending Act's inserted sections under their own numbers) |
 | `engine/store.py` | Postgres schema `indiafacts` in the site DB: sources, passages (FTS), topics, passage_topics, topic_edges |
 | `engine/graph.py` | topic tagging (Haiku 5.5, Batch API, 6 passages per request, Wikipedia titles as names) and co-occurrence edges |
 | `engine/ask.py` | plan (Haiku 5.5) → retrieve (FTS + meaning + graph; 16 max, 3 per source; depth full: 24, 6) → answer (Sonnet 5.5 by default, `llm.ANSWER_MODEL`; search results with citations, `search_corpus` tool, official-site web search) → render → widen web quotes (`pages.py`) → per-sentence check (Haiku; an uncited sentence survives only as a gap statement with a word of absence, `_ABSENCE`) → `by_source` (one number per source; segments keep `at` = exact passages) |
