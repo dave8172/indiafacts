@@ -196,24 +196,37 @@ def meaning_passages(question, k=12):
     return rows
 
 
-def retrieve(p, full=False):
-    """Each query's hits scored against that query's best (0..1); weak hits dropped; then spread across sources."""
-    hits = {}
+def candidates(p):
+    """Every passage the three searches find, best first, each with `via`: which of words, meaning, graph found it.
+    Each query's hits are scored against that query's best (0..1) and weak hits dropped."""
+    hits, via = {}, {}
+
+    def add(r, how, replace=True):
+        via.setdefault(r["id"], set()).add(how)
+        if r["id"] not in hits or replace and r["score"] > hits[r["id"]]["score"]:
+            hits[r["id"]] = r
+
     for q in p["searches"]:
         rows = store.search(q, limit=12)  # every word must match; an any-word search here pulled in noise
         top = max((r["rank"] for r in rows), default=0) or 1
         for r in rows:
             r["score"] = r["rank"] / top
-            if r["score"] >= MIN_SCORE and (r["id"] not in hits or r["score"] > hits[r["id"]]["score"]):
-                hits[r["id"]] = r
+            if r["score"] >= MIN_SCORE:
+                add(r, "words")
     for r in meaning_passages(p.get("factual") or p.get("question", "")):
-        if r["id"] not in hits or r["score"] > hits[r["id"]]["score"]:
-            hits[r["id"]] = r
+        add(r, "meaning")
     trows, topics = topic_passages(p["topics"])
     for r in trows:  # passages the graph ties to the topic: a second way in, from every source that covers it
         r["score"] = 0.5
-        hits.setdefault(r["id"], r)
-    ranked = sorted(hits.values(), key=lambda r: -r["score"])
+        add(r, "graph", replace=False)
+    for i, r in hits.items():
+        r["via"] = sorted(via[i])
+    return sorted(hits.values(), key=lambda r: -r["score"]), topics
+
+
+def retrieve(p, full=False):
+    """The candidates, spread across sources: what the writer is given."""
+    ranked, topics = candidates(p)
     return (diversify(ranked, FULL_PASSAGES, FULL_PER_SOURCE) if full else diversify(ranked)), topics
 
 

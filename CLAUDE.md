@@ -49,6 +49,7 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 .venv/bin/python -m engine graph --pilot 30 | --submit | --collect | --link
 .venv/bin/python -m engine ask "<question>"
 .venv/bin/python -m evals.run [--only id,id] [--arms system,baseline] [--cap 10]
+.venv/bin/python -m evals.recall [--only id,id] [--replan]      # search test: do the needed passages reach the writer (~$0.02; $0 on saved plans)
 deploy/up.sh
 ```
 
