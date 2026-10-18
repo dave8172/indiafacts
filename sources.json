@@ -544,6 +544,28 @@
       "locator": "section",
       "rights": "statute over 60 years old",
       "note": "Created the dominions of India and Pakistan from 15 August 1947."
+    },
+    {
+      "slug": "it-act-2000",
+      "ia": "INFORMATIONTECHNOLOGYACT2000_201507",
+      "title": "The Information Technology Act, 2000 (as enacted)",
+      "author": "Government of India",
+      "year": 2000,
+      "standing": "law",
+      "locator": "section-heading",
+      "rights": "statute text, s.52(1)(q)",
+      "note": "Act No. 21 of 2000, as passed, before later amendments: a typed reproduction of the Act's text. The Information Technology (Amendment) Act, 2008 (it-act-amendment-2008) substituted and inserted many sections, among them 66, 66A to 66F, 67, 67A and 67B. Section 66A was struck down by the Supreme Court in Shreya Singhal v. Union of India (2015). Amendments after 2009 are in neither text."
+    },
+    {
+      "slug": "it-act-amendment-2008",
+      "ia": "InformationTechnologyAmendmentAct2008_201507",
+      "title": "The Information Technology (Amendment) Act, 2008",
+      "author": "Government of India",
+      "year": 2009,
+      "standing": "law",
+      "locator": "gazette-section",
+      "rights": "Gazette of India, s.52(1)(q)",
+      "note": "Act No. 10 of 2009, assented to on 5 February 2009, as printed in the Gazette of India Extraordinary. It amends the Information Technology Act, 2000 (it-act-2000): its own sections are numbered 1, 2, 3...; the sections it inserts into the 2000 Act (66A to 66F, 67A, 67B and others) appear inside them."
     }
   ]
 }

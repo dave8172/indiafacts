@@ -112,11 +112,16 @@ def _is_amendment_note(p):
     return len(p) >= 20 and not _looks_like_text(p) and bool(AMENDMENT_NOTE.search(p))
 
 
+# A reproduction's section heading on its own line: "Section 66 - Hacking with Computer System". Often short,
+# so the text test would drop it, and with it the section number.
+HEADING = re.compile(r"^Section (\d{1,3}[A-Z]?) - [A-Z]")
+
+
 def paragraphs(text):
     text = unicodedata.normalize("NFKC", text).replace("\x0c", "\n\n").replace("\r", "")
     for raw in re.split(r"\n\s*\n", text):
         p = _clean_paragraph(raw)
-        if _looks_like_text(p) or _is_amendment_note(p):
+        if _looks_like_text(p) or _is_amendment_note(p) or HEADING.match(p):
             yield p
 
 
@@ -134,6 +139,8 @@ LOCATORS = {
                 lambda m: f"section {m.group(1)}"),
     # Gazette print, heading in the margin: "103. (1) Whoever commits murder shall be punished..."
     "gazette-section": (re.compile(r"^(\d{1,3})\.\s+(?:\([0-9IJl/i]\)\s+)?[A-Z]"), lambda m: f"section {m.group(1)}"),
+    # a reproduction's own heading line: "Section 66 - Hacking with Computer System"
+    "section-heading": (HEADING, lambda m: f"section {m.group(1)}"),
     # "16.17 The story related by..."
     "para": (re.compile(r"^(\d{1,2}\.\d{1,3})\.?\s+[A-Z(]"), lambda m: f"para {m.group(1)}"),
 }
