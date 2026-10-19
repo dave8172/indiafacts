@@ -634,7 +634,7 @@ def plain(out):
         lines.append(f"({out['unsourced_removed']} sentence(s) removed: no source)")
     for s in out["sources"]:
         lines.append(f"[{s['n']}] {s['title']}, {s['author']} ({s['standing']}) {s['url']}")
-        for x in s["passages"]:
+        for x in s.get("passages", [s]):  # the eval baseline's sources are one quote each
             lines.append(f"     {x['locator'] or ''}: \"{x['quote'][:240]}\"\n     {x['url']}")
     return "\n".join(lines)
 
