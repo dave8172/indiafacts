@@ -131,6 +131,23 @@ OPINION = ("India Facts answers questions of fact, not opinion. It reports what 
            "what happened, what was said or decided, or what a law provides.")
 LOADED = "India Facts answers questions of fact, so it answered this instead:"
 
+# Opinions get their questions of fact from a call of their own: in the plan, with every other field empty for an
+# opinion, the planner left them out 13 times in 18, and rules added there made it worse (2026-10-19).
+SUGGEST_SYSTEM = """A person asked indiafacts, a fact-only research tool on Indian history, law, politics and geopolitics,
+a question that asks for an opinion. indiafacts never gives opinions and never judges people, parties, governments
+or events. Write three short questions of fact that the person could ask instead, which laws, official records,
+reports or the people's own writings can answer.
+- Each under 15 words, about the subject the question names and nothing else.
+- Keep them broad: what offices a person held and what they did in them, what they wrote or said, what a law
+  provided and how it changed, how an event came about. Don't single out an episode that either side cites
+  to praise or condemn.
+- Ask the same kind of question about every person or side the question names, and name each of them.
+- A question that ranks many (best, greatest, worst) gets questions about the whole group, not about members you pick.
+- No words that judge."""
+
+SUGGEST_SCHEMA = {"type": "object", "properties": {"suggest": {"type": "array", "items": {"type": "string"}}},
+                  "required": ["suggest"], "additionalProperties": False}
+
 
 def plan(cl, question):
     msg = cl.messages.create(
@@ -138,6 +155,15 @@ def plan(cl, question):
         output_config={"effort": "low", "format": {"type": "json_schema", "schema": PLAN_SCHEMA}},
         messages=[{"role": "user", "content": question}])
     return json.loads(next(b.text for b in msg.content if b.type == "text")), llm.cost(llm.WORKER_MODEL, msg.usage)
+
+
+def suggest(cl, question):
+    """Three questions of fact to ask instead of an opinion question, and the cost."""
+    msg = cl.messages.create(
+        model=llm.WORKER_MODEL, max_tokens=600, system=SUGGEST_SYSTEM, thinking={"type": "disabled"},
+        output_config={"effort": "low", "format": {"type": "json_schema", "schema": SUGGEST_SCHEMA}},
+        messages=[{"role": "user", "content": question}])
+    return json.loads(next(b.text for b in msg.content if b.type == "text"))["suggest"][:3], llm.cost(llm.WORKER_MODEL, msg.usage)
 
 
 # --- 2. retrieve -----------------------------------------------------------------------------------------
@@ -334,8 +360,10 @@ def answer(question, model=None):
     cl = llm.client()
     p, plan_cost = plan(cl, question)
     if p["kind"] == "opinion":  # nothing to report: say so, offer questions of fact, spend nothing more
+        offer, c = suggest(cl, question)
+        plan_cost += c
         llm.record("answer", plan_cost)
-        return {"ok": True, "kind": "opinion", "notice": OPINION, "suggest": p["suggest"][:3], "segments": [],
+        return {"ok": True, "kind": "opinion", "notice": OPINION, "suggest": offer, "segments": [],
                 "sources": [], "topics": [], "related": [],
                 "meta": {"usd": round(plan_cost, 4), "seconds": round(time.time() - t0, 1), "plan": p}}
     asked = p["factual"] if p["kind"] == "loaded" and p["factual"] else question
