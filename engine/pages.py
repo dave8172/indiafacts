@@ -3,6 +3,8 @@ little to check a sentence on a court ruling against. So each cited page is fetc
 web fetch tool (court and Gazette servers time out for server addresses; the API's fetcher gets through), the
 short quote is found in it, and the quote is replaced by ~900 characters around it. A page that can't be fetched,
 or that doesn't contain the short quote, keeps the short quote: every quote shown is still text on the page.
+A signed court PDF prints its e-signature stamp and page number across the text at every page break; they are
+taken out first, so a widened quote doesn't carry "Signature Not Verified ... Page 70 of 82" mid-sentence.
 
 Pages are fetched from here first (free, and whole: the API's fetcher cuts a long judgment off at its token cap).
 """
@@ -22,6 +24,10 @@ from .corpus import UA
 WIDTH = 900
 DEADLINE = 10  # seconds for the whole step; a page not in by then keeps its short quote
 BEFORE = 200  # how far back to look for the start of the quote's sentence
+# The e-signature stamp of a signed court PDF (High Court: "Signing Date:", Supreme Court: "Reason:"), with the
+# case number and page number printed after it, and a page number on a line of its own.
+FURNITURE = re.compile(r"Signature Not Verified.{0,160}?(?:Reason:|Signing Date:\s*[\d.]+(?:\s+\d\d:\d\d:\d\d)?)"
+                       r"(?:[^\n]{0,120}?Page \d+ of \d+)?|^[ \t]*Page \d+ of \d+[ \t]*$", re.S | re.M)
 _SLOW = set()  # hosts that timed out from here (sci.gov.in, egazette): straight to the API's fetcher
 
 
@@ -142,7 +148,7 @@ def widen(cl, sources):
     pages = {futures[f]: f.result() for f in done}
     for s in web:
         text = pages.get(s["url"], (None, 0))[0]
-        wide = text and _around(text, s["quote"])
+        wide = text and _around(FURNITURE.sub(" ", text), s["quote"])
         if wide and len(wide) > len(s["quote"]):
             s["quote"], s["widened"] = wide, True
     return sum(c for _, c in pages.values())
