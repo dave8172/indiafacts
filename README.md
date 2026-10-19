@@ -50,7 +50,7 @@ break copyright law. Every source and its rights basis is in `sources.json`.
 | Meaning search | `engine/embed.py` | every passage as a vector from EmbeddingGemma (300M, multilingual, ONNX); a question in Hindi finds English passages. The corpus is embedded once on any GPU machine; the server only embeds questions |
 | Answer | `engine/ask.py` | sort the question, search by words and by meaning, spread the picks across sources, answer with citations, check every cited sentence |
 | Serve | `engine/server.py` | small HTTP service with a daily spending cap |
-| Evals | `evals/` | mirrored pairs (the same question framed from each side), opinion and loaded questions, false premises; the system against a plain model-plus-web-search baseline |
+| Evals | `evals/` | mirrored pairs (the same question framed from each side), opinion and loaded questions, false premises; the system against a plain model-plus-web-search baseline; results and how to read them: [How it was tested](https://quirkyagents.com/wizard/projects/indiafacts/#how-it-was-tested) |
 
 ## Run it
 
