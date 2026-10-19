@@ -49,7 +49,9 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 .venv/bin/python -m engine graph --pilot 30 | --submit | --collect | --link
 .venv/bin/python -m engine ask "<question>"
 .venv/bin/python -m evals.run [--only id,id] [--arms system,baseline] [--cap 10]
-.venv/bin/python -m evals.recall [--only id,id] [--replan]      # search test: do the needed passages reach the writer (~$0.02; $0 on saved plans)
+# evals.run spends from the live engine's key: full default (37 q x 2 arms) ~$14, ~45 min at --workers 1. 2026-10-19 it hit
+# the Console workspace's monthly limit and took the public site down; check runs/spend.jsonl for the month first.
+.venv/bin/python -m evals.recall [--only id,id] [--replan]      # search test: do the needed passages reach the writer (~$0.10 replanned, measured 2026-10-18; $0 on saved plans)
 deploy/up.sh
 ```
 
