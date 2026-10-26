@@ -56,7 +56,7 @@ deploy/up.sh
 ```
 
 Settings come from the environment or a gitignored `.env` (IF_DB_*, IF_ANTHROPIC_KEY_FILE, IF_SECRETS for
-`deploy/up.sh`). Use an Anthropic key of its own in a capped Console workspace. Spend ledger: `runs/spend.jsonl`.
+`deploy/up.sh`; IF_ANTHROPIC_KEY names the key file, default `$IF_SECRETS/indiafacts-anthropic.key`). Use a key in a capped Console workspace; on quirkyagents.com it runs on the site's one Anthropic key (owner, 2026-10-26). Spend ledger: `runs/spend.jsonl`.
 
 ## Known limits
 
