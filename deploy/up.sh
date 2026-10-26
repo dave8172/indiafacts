@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# (Re)build and start the engine container on a Docker network (IF_NETWORK, default "das") that a Cloudflare
+# (Re)build and start the engine container on a Docker network (IF_NETWORK, default "engines") that a Cloudflare
 # Tunnel also joins (rule: path ^/indiafacts/ -> http://indiafacts-engine:8080). Postgres is the host's, reached
 # through its unix socket. Secrets never enter the image: IF_SECRETS holds indiafacts-anthropic.key and
 # indiafacts-engine.key; IF_DB_PASSWORD_FILE is the database password (IF_DB_USER, IF_DB_NAME name the role and DB).
@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 S=${IF_SECRETS:?set IF_SECRETS to the folder holding the key files}
 DBPW=${IF_DB_PASSWORD_FILE:?set IF_DB_PASSWORD_FILE}
-NET=${IF_NETWORK:-das}
+NET=${IF_NETWORK:-engines}
 # Meaning search: the corpus vectors (data/vectors.npz) and the question model, downloaded once (python -m engine search "x").
 # Peak memory with both loaded ~760 MB (measured 2026-10-17), hence --memory 900m.
 MODEL=${IF_MODEL_DIR:-$HOME/.cache/indiafacts/embeddinggemma}

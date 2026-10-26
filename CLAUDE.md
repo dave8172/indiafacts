@@ -38,7 +38,7 @@ nothing about the asker is read or stored, so it can't drift towards anyone's vi
 | `engine/pages.py` | web search quotes only ~150 chars: refetch the page (direct, else the API's web_fetch), keep ~900 chars around the quote; 10 s deadline, late cost still logged as `answer` |
 | `engine/server.py` | HTTP: `POST /indiafacts/ask`, `GET /indiafacts/health`; `X-Engine-Key`; daily dollar cap `IF_DAILY_USD`, counting only answers it served (ledger `by: public`; evals and the CLI are `local`) |
 | `evals/` | `questions.json` (mirrored pairs, fact, loaded and opinion questions, false premises, web-only; `expect` = the kind), `run.py` (system vs plain Opus+web baseline; code scores + a Sonnet 5.5 support judge, not the run-time checker) |
-| `deploy/` | Dockerfile, `up.sh` (container `indiafacts-engine` on network `das`, 127.0.0.1:8091) |
+| `deploy/` | Dockerfile, `up.sh` (container `indiafacts-engine` on network `engines`, 127.0.0.1:8091; tunnel: quirkyagents `scripts/tunnel-up.sh`) |
 | `engine/embed.py` | meaning search: EmbeddingGemma 300M ONNX (pinned revision); corpus embedded on a GPU machine (`python -m engine.embed run`, needs only `requirements-embed.txt`), merged and searched on the server |
 | the site | in the site's repo: page `wizard/projects/indiafacts.md`, titled "India Facts" (two `widget-indiafacts` blocks: the question box, and the corpus table with `corpus:`, read from this repo's `sources.json` at build; one question per answer, Share + Ask another fact, explanations folded), widget JS/CSS, Pages Function `functions/wizard/api/indiafacts.js`, share card `#indiafacts` |
 
