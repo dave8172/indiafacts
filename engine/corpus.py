@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 SOURCES = ROOT / "sources.json"
-UA = {"User-Agent": "indiafacts/0.1 (quirkyagents.com; hello@quirkyagents.com)"}
+UA = {"User-Agent": "indiafacts/0.1 (quirkyagents.com; dave@quirkyagents.com)"}
 
 PASSAGE_CHARS = 1200
 BLOCK_CHARS = 260
